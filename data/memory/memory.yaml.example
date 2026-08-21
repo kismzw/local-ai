@@ -1,0 +1,7 @@
+# Opt-in long-term memory. The owner explicitly creates it with memory.sh.
+preferences:
+  response_language: Japanese
+  technical_depth: high
+projects: {}
+environment:
+  primary_gpu: RTX 5090

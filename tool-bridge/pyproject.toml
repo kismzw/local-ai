@@ -1,0 +1,8 @@
+[project]
+name = "local-ai-tool-bridge"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+dependencies = ["fastapi==0.121.3", "uvicorn==0.38.0"]
+
+[tool.uv]
+package = false

@@ -1,0 +1,15 @@
+Bootstrap: docker
+From: python:3.11-slim-bookworm
+
+%post
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git bash ca-certificates
+    rm -rf /var/lib/apt/lists/*
+
+%environment
+    export HOME=/tmp
+    export PATH=/usr/local/bin:/usr/bin:/bin
+
+%labels
+    org.opencontainers.image.title Local AI restricted tool sandbox
+    org.opencontainers.image.description Immutable Python, Git and shell environment for Apptainer containment
