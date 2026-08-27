@@ -1,20 +1,31 @@
 # Tools
 
 The native localhost tool bridge starts a separate immutable Apptainer SIF with
-Python, bash, and git. Add its OpenAPI definition in Open WebUI as described in
-`config/open-webui/tool-bridge.md`. It is disabled by default.
+Python, bash, and git. Open WebUI has a read-only review adapter and **Qwen
+Codex Workspace**, which provides separate inspection and modification tools.
+Add them as described in `config/open-webui/tool-bridge.md`. The Codex adapter
+is enabled by default for the configured workspace.
 
 The tool SIF runs with `--cleanenv --containall --no-home --writable-tmpfs`; it
 does not receive GPU, host home, SSH keys, credentials, Docker socket, or host
-configuration. `/workspace` maps only `WORKSPACE_DIR`. It is mounted writable
-only because the user explicitly configured that exact directory; read calls
-mount it `:ro`, and write calls are rejected unless `TOOL_WRITE_MODE=read_write`
-is deliberately set. Python
+configuration. `/workspace` maps only `WORKSPACE_DIR`. Read calls mount it
+`:ro`; Codex write calls mount it `:rw` when `TOOL_WRITE_MODE=read_write`.
+Write execution is fully unrestricted within that explicit mount, including
+recursive deletion, package commands, and Git commits. Python
 scratch work is temporary. Audit logs are retained in `data/tool-audit`.
 
-The first milestone rejects destructive Git commands, package installation,
-`sudo`, and host/container-management commands. On this workstation the
-unprivileged `--net --network none` probe passed, so the configured bridge uses
+`TOOL_DATA_DIR`, when explicitly set by the owner, is a second bind mounted at
+`/data:ro`; it can be searched but never modified through the container. Use
+`TOOL_HIDDEN_PATHS` for any secret file below `WORKSPACE_DIR`: each listed
+absolute path is replaced inside the container by an empty read-only file.
+
+`TOOL_MAX_OUTPUT_CHARS` limits the combined sandbox result retained in each
+chat tool call (default `6000`). This prevents repeated repository listings
+from exhausting the model context; use targeted `rg` and `sed` commands for
+review work.
+
+On this workstation the unprivileged `--net --network none` probe passed, so
+the configured bridge uses
 `TOOL_NETWORK_MODE=isolated`. Re-run `tests/tool-isolation.sh` after an
 Apptainer or host-policy change. If that probe does not pass on another host,
 **NETWORK ISOLATION: NOT GUARANTEED** and network-capable tool activity must
@@ -22,3 +33,11 @@ remain behind owner approval.
 
 The core chat/RAG services do not depend on bridge health; if tools are stopped
 or disabled, Open WebUI remains usable normally.
+
+Qwen Codex follows a chat-level approval protocol: it inspects first, presents a
+plan, and waits for an explicit approval before write calls. Open WebUI cannot
+technically attest that a preceding approval message was user-authored, so do
+not treat this as a security boundary. After relevant checks pass, it commits
+each changed Git repository separately. If local repository identity is absent,
+it asks for a name/email and uses temporary `git -c` options rather than saving
+them.

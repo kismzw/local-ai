@@ -21,8 +21,8 @@ absolute_path() {
 }
 
 ensure_dirs() {
-  mkdir -p "$MODEL_DIR" "$OPEN_WEBUI_DATA_DIR" "$TOOL_AUDIT_DIR" "$WORKSPACE_DIR" images run logs benchmarks/results data/memory/backups
-  chmod 700 "$OPEN_WEBUI_DATA_DIR" "$TOOL_AUDIT_DIR" data/memory data/memory/backups
+  mkdir -p "$MODEL_DIR" "$OPEN_WEBUI_DATA_DIR" "$TOOL_AUDIT_DIR" "$WORKSPACE_DIR" "$SEARXNG_CACHE_DIR" "$DOCLING_ARTIFACTS_DIR" "$DOCLING_AUDIT_DIR" images run logs benchmarks/results data/memory/backups
+  chmod 700 "$OPEN_WEBUI_DATA_DIR" "$TOOL_AUDIT_DIR" "$SEARXNG_CACHE_DIR" "$DOCLING_ARTIFACTS_DIR" "$DOCLING_AUDIT_DIR" data/memory data/memory/backups
 }
 
 require_file() {

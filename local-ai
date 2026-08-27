@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+app_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+cd "$app_root"
+
+usage() {
+  printf 'Usage: %s {open|close|status|install-launcher}\n' "$0"
+}
+
+browser_pidfile='run/firefox.pid'
+
+browser_running() {
+  [[ -f $browser_pidfile ]] && kill -0 "$(<"$browser_pidfile")" 2>/dev/null
+}
+
+service_running() {
+  local pidfile="run/$1.pid"
+  [[ -f $pidfile ]] && kill -0 "$(<"$pidfile")" 2>/dev/null
+}
+
+stop_browser() {
+  if browser_running; then
+    local pid
+    pid=$(<"$browser_pidfile")
+    kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+    for _ in {1..20}; do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.25
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
+    fi
+    printf 'Closed Local AI Firefox window.\n'
+  fi
+  rm -f "$browser_pidfile"
+}
+
+firefox_command() {
+  if [[ -n ${FIREFOX_BIN:-} ]]; then
+    [[ -x $FIREFOX_BIN ]] || { printf 'FIREFOX_BIN is not executable: %s\n' "$FIREFOX_BIN" >&2; return 1; }
+    printf '%s\n' "$FIREFOX_BIN"
+  elif command -v firefox >/dev/null 2>&1; then
+    command -v firefox
+  elif [[ -x /var/lib/flatpak/exports/bin/org.mozilla.firefox ]]; then
+    printf '%s\n' /var/lib/flatpak/exports/bin/org.mozilla.firefox
+  else
+    printf 'Firefox was not found. Install Firefox or set FIREFOX_BIN in .env.\n' >&2
+    return 1
+  fi
+}
+
+wait_for_ui() {
+  local url=$1
+  for _ in {1..60}; do
+    if curl -fsS --max-time 2 "$url/health" >/dev/null; then return 0; fi
+    sleep 1
+  done
+  printf 'Local AI did not become healthy at %s. See ./scripts/logs.sh.\n' "$url" >&2
+  return 1
+}
+
+open_app() {
+  ./scripts/start.sh
+  set -a; source .env; set +a
+  local url="http://${OPEN_WEBUI_BIND}:${OPEN_WEBUI_PORT}"
+  wait_for_ui "$url"
+  if browser_running; then
+    printf 'Local AI is open at %s (Firefox window already running).\n' "$url"
+    return 0
+  fi
+  local firefox profile_dir
+  firefox=$(firefox_command)
+  profile_dir="$app_root/data/firefox-profile"
+  mkdir -p "$profile_dir" run logs
+  chmod 700 "$profile_dir"
+  # A dedicated profile/new instance lets close terminate only Local AI's window.
+  nohup setsid "$firefox" --new-instance --profile "$profile_dir" --new-window "$url" \
+    >logs/firefox.log 2>&1 &
+  printf '%s\n' "$!" > "$browser_pidfile"
+  printf 'Local AI is open at %s.\n' "$url"
+}
+
+install_launcher() {
+  local data_home applications_dir desktop_dir launcher desktop_copy
+  data_home=${XDG_DATA_HOME:-"$HOME/.local/share"}
+  applications_dir="$data_home/applications"
+  desktop_dir=$(xdg-user-dir DESKTOP 2>/dev/null || true)
+  launcher="$applications_dir/local-ai.desktop"
+  mkdir -p "$applications_dir"
+  cat >"$launcher" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Local AI
+Comment=Open the local coding agent
+Exec=$app_root/local-ai open
+Icon=utilities-terminal
+Terminal=false
+Categories=Development;Utility;
+Actions=Close;
+
+[Desktop Action Close]
+Name=Close Local AI
+Exec=$app_root/local-ai close
+EOF
+  chmod 755 "$launcher"
+  if [[ -n $desktop_dir && -d $desktop_dir ]]; then
+    desktop_copy="$desktop_dir/Local AI.desktop"
+    cp "$launcher" "$desktop_copy"
+    chmod 755 "$desktop_copy"
+    printf 'Installed app-menu launcher: %s\nInstalled desktop launcher: %s\n' "$launcher" "$desktop_copy"
+  else
+    printf 'Installed app-menu launcher: %s\n' "$launcher"
+  fi
+}
+
+case ${1:-} in
+  open) open_app ;;
+  close) stop_browser; ./scripts/stop.sh ;;
+  status)
+    if browser_running; then printf 'Firefox: running\n'; else printf 'Firefox: stopped\n'; fi
+    for service in open-webui tool-bridge docling-gate docling embedding-server llama-server searxng; do
+      if service_running "$service"; then printf '%s: running\n' "$service"; else printf '%s: stopped\n' "$service"; fi
+    done
+    ;;
+  install-launcher) install_launcher ;;
+  *) usage; exit 2 ;;
+esac

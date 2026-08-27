@@ -1,0 +1,16 @@
+# Recorded after `scripts/pull-images.sh` on 2026-08-26.  OCI tags are mutable;
+# source revision and SIF SHA-256 identify the exact local root filesystem.
+
+[searxng]
+source=docker://searxng/searxng:latest
+oci_manifest_sha256=467786b0d2523b0de2fc4b690c5629913ba5d80ace7efb8e32288046122f53b7
+upstream_version=2026.8.22-9fea41204
+upstream_revision=9fea41204fdfa7a5cfa15b0ebd12904c520478ce
+sif_sha256=d2896fe94408476bbd6835809e66b6dbcdd7768651843752b78909bcccada6a1
+
+[docling]
+source=docker://quay.io/docling-project/docling-serve-cu128:latest
+oci_manifest_sha256=0ee15dfb92b9b6251706521dc6601e65b22168b14a41c9e3a8543a9bdece3494
+upstream_version=docling-serve-v1.12.0; docling-v2.72.0
+upstream_revision=22012daf2dc254deb685941fc1f1662ca2961f58
+sif_sha256=a88d9ec3d156b61d1c0f284d6bedfdad44b3ecf8dcc380a0e5e9082a6edbe4c6

@@ -3,7 +3,7 @@
 This ledger distinguishes implementation evidence from live evidence. Do not
 claim a checked item until the listed live test has run on this host.
 
-## Recorded live evidence — 2026-08-21
+## Recorded live evidence — 2026-08-21 and 2026-08-26
 
 | Check | Result |
 | --- | --- |
@@ -13,12 +13,17 @@ claim a checked item until the listed live test has run on this host.
 | 64k benchmark | Passed at 45.9k-token long prompt: 21.1 GiB VRAM without embedding server; TTFT 1.05 s; generation 65.2 tok/s; long prefill 2,905 tok/s / 16.20 s TTFT. [Result](../benchmarks/results/20260821-180229-65536.md) |
 | Native Open WebUI | Passed: user-space Python 3.11 service answered `GET /health` on 127.0.0.1:3000. |
 | Embeddings | Passed: Qwen3 Embedding `/v1/embeddings` returned a vector. |
-| Tool filesystem isolation | Passed: Python/Git and workspace write work; real home, SSH paths, Docker socket and host paths outside the bind are absent. |
+| SearXNG | Passed: official Apptainer SIF binds to 127.0.0.1:8082 and returned JSON search results. |
+| Web-fetch SSRF policy | Passed against the pinned Open WebUI validator: localhost, RFC1918, IPv6-private, and metadata targets were rejected; redirect following is disabled. |
+| Docling service | Passed: official CUDA SIF sees the GPU, initializes local artifacts, a gated upload using Open WebUI's `X-Api-Key` returned extracted text, and the gate detected an active llama.cpp slot. |
+| Tool filesystem isolation | Passed: Python/Git and workspace write work; real home, SSH paths, Docker socket and host paths outside the bind are absent. Explicit `/data` is read-only and configured secret paths are masked. |
 | Tool network behavior | Passed: unprivileged `--net --network none` blocked DNS/egress. `TOOL_NETWORK_MODE=isolated` is set for this host. |
+| Codex tool bridge | Passed: authenticated contained write commands created separate Git commits, an identity-free commit failed, and command output was capped and audited. |
 
 Not yet browser-verified: initial-admin login, model-profile creation, chat
 survival across a restart, PDF Knowledge collection grounding, and OpenAPI-tool
-import. These require the owner to complete first login in the browser.
+import. Web Search capability/default-feature persistence and a Docling-backed
+Knowledge upload also require the owner to complete first login in the browser.
 
 | Requirement | Implementation evidence | Required live evidence |
 | --- | --- | --- |
@@ -30,8 +35,12 @@ import. These require the owner to complete first login in the browser.
 | Fast / Think / Research | `config/open-webui/model-profiles.md` | Create models in first-admin UI, manual test 5 |
 | Vision | Explicitly unsupported by selected text GGUF | Choose and test a matching multimodal model/projector before claiming it |
 | PDF/document RAG | Open WebUI RAG + local Qwen embedding service | Deterministic test in `RAG.md` |
+| Default web search | Built-in Open WebUI native tools + loopback SearXNG | Admin UI profile settings; grounded answer with citations |
+| Public-web SSRF protection | Local/private fetches disabled, redirect guard and filter configured | `tests/web-fetch-isolation.sh` passed; browser/API rejection probes remain recommended |
+| Docling GPU extraction | GPU Docling SIF + serialized loopback gate | Scanned Japanese/English and table PDF Knowledge tests |
 | Explicit long-term memory | Disabled Open WebUI memories + owner-managed YAML | `memory.sh` inspection/edit/delete/backup exercise |
 | Sandboxed Python/shell/git | Separate immutable Apptainer tool SIF and bridge | `tests/tool-isolation.sh` and OpenAPI manual test |
+| Codex-style coding workflow | Qwen Codex native adapter, writable bridge, and profile approval protocol | `tests/tool-bridge-codex.sh`; browser plan/approval/edit/test/commit exercise |
 | Restricted workspace binding | Explicit `/workspace:rw` bind only | `tests/tool-isolation.sh` |
 | Home and secret-path isolation | `--cleanenv --containall --no-home` tool invocation | `tests/tool-isolation.sh` |
 | Tool-container network behavior | `--net --network none` is used when the host probe succeeds | Passed here: `tests/tool-isolation.sh` blocked DNS/egress; otherwise `NETWORK ISOLATION: NOT GUARANTEED` |

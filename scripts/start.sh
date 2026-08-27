@@ -3,6 +3,9 @@ set -Eeuo pipefail
 root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
 ./scripts/doctor.sh --preflight
+./scripts/start-searxng.sh
+./scripts/start-docling.sh
+./scripts/start-docling-gate.sh
 ./scripts/start-llama.sh
 ./scripts/start-embedding.sh
 if grep -q '^TOOL_BRIDGE_ENABLED=true$' .env; then ./scripts/start-tool-bridge.sh; fi

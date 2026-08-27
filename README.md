@@ -20,6 +20,7 @@ cp .env.example .env
 ./scripts/install-uv.sh
 ./scripts/pull-images.sh
 ./scripts/download-model.sh
+./scripts/download-docling-models.sh
 ./scripts/start.sh
 ```
 
@@ -34,18 +35,27 @@ official llama.cpp OCI source before deliberately refreshing its SIF with
 
 ## Everyday use
 
-Create the Fast, Think, and Research presets once using
-`config/open-webui/model-profiles.md`. Upload documents into a Knowledge
-collection for RAG. The Apptainer tool bridge is off by default; enable it only
-after reviewing [its policy](config/open-webui/tool-bridge.md). Explicit
-long-term memory is managed with
+Create the Fast, Think, Research, and Codex presets once using
+`config/open-webui/model-profiles.md`. Qwen Codex is enabled for the configured
+workspace and follows a plan-then-approval workflow before it edits files; it
+can test and commit successful work in that workspace. Review its
+[containment and command policy](config/open-webui/tool-bridge.md). Upload
+documents into a Knowledge collection for RAG. Explicit long-term memory is
+managed with
 `./scripts/memory.sh`; it is never silently written by the model.
 
 ## Operations
 
+- Open Local AI and its dedicated Firefox window: `./local-ai open`
+- Close that Firefox window and stop all Local AI services: `./local-ai close`
+- Install GNOME app-menu/Desktop launchers: `./local-ai install-launcher`
+- If Firefox is not auto-detected, set its executable path as `FIREFOX_BIN` in `.env`.
 - Preflight/live diagnostics: `./scripts/doctor.sh`
 - Smoke test: `./tests/smoke.sh`
 - 32k/64k benchmarks: `./scripts/benchmark.sh 32768` and `./scripts/benchmark.sh 65536`
+- Web search: SearXNG runs locally at `127.0.0.1:8082`; select lowercase
+  `searxng` and leave the web loader at **Default** (the safe-web loader) in
+  the one-time Admin UI setup in `config/open-webui/web-search.md`.
 - Back up: stop services and copy `data/open-webui`, `data/memory`, `.env`, and `images/*.sif` to encrypted storage.
 
 See [architecture](docs/ARCHITECTURE.md), [security](docs/SECURITY.md),

@@ -6,8 +6,9 @@ and bash. Its execution contract is `--cleanenv --containall --no-home
 `WORKSPACE_DIR:/workspace:rw`. Its temporary root filesystem can be modified
 inside the process but no modifications reach the host except under `/workspace`.
 
-The native localhost bridge rejects privileged, host-management, package,
-destructive-Git, and recursive-delete commands. Read commands are permitted;
-workspace modification requires the owner to set `TOOL_WRITE_MODE=read_write`.
+The Qwen Codex adapter can run unrestricted commands inside `/workspace` when
+the owner sets `TOOL_WRITE_MODE=read_write`; this includes destructive workspace
+operations and project-local package commands. It cannot access paths outside
+the explicit bind. The restricted review adapter always uses a read-only mount.
 Every call is auditable. Test the actual isolation with
 `./tests/tool-isolation.sh` before enabling the Open WebUI tool.

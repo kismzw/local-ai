@@ -21,8 +21,35 @@ if [[ ! -f .env ]]; then
   printf 'Created .env from .env.example.\n'
 fi
 
+ensure_variable() {
+  local name=$1 value=$2
+  grep -q "^${name}=" .env || printf '%s=%s\n' "$name" "$value" >> .env
+}
+
+ensure_variable SEARXNG_IMAGE ./images/searxng.sif
+ensure_variable DOCLING_IMAGE ./images/docling-serve-cu128.sif
+ensure_variable SEARXNG_PORT 8082
+ensure_variable DOCLING_GATE_PORT 5001
+ensure_variable DOCLING_PORT 5002
+ensure_variable SEARXNG_CACHE_DIR ./data/searxng/cache
+ensure_variable DOCLING_ARTIFACTS_DIR ./data/docling/artifacts
+ensure_variable DOCLING_AUDIT_DIR ./data/docling/audit
+ensure_variable SEARXNG_SECRET CHANGE_ME
+ensure_variable DOCLING_GATE_API_KEY CHANGE_ME
+ensure_variable WEB_SEARCH_ENABLED true
+ensure_variable WEB_SEARCH_RESULT_COUNT 5
+ensure_variable WEB_SEARCH_CONCURRENT_REQUESTS 1
+ensure_variable WEB_LOADER_CONCURRENT_REQUESTS 2
+ensure_variable WEB_LOADER_TIMEOUT_SECONDS 20
+ensure_variable WEB_FETCH_MAX_CONTENT_LENGTH 40000
+ensure_variable DOCLING_GATE_IDLE_SECONDS 10
+ensure_variable DOCLING_GATE_POLL_SECONDS 5
+ensure_variable DOCLING_GATE_MAX_WAIT_SECONDS 600
+ensure_variable DOCLING_GATE_MAX_RETRIES 3
+ensure_variable DOCLING_MAX_SYNC_WAIT_SECONDS 600
+
 make_secret() { openssl rand -hex 32; }
-for secret_name in LLAMA_API_KEY EMBEDDING_API_KEY TOOL_SANDBOX_API_KEY WEBUI_SECRET_KEY; do
+for secret_name in LLAMA_API_KEY EMBEDDING_API_KEY TOOL_SANDBOX_API_KEY SEARXNG_SECRET DOCLING_GATE_API_KEY WEBUI_SECRET_KEY; do
   if grep -q "^${secret_name}=CHANGE_ME$" .env; then
     secret_value=$(make_secret)
     sed -i "s/^${secret_name}=CHANGE_ME$/${secret_name}=${secret_value}/" .env
@@ -30,8 +57,8 @@ for secret_name in LLAMA_API_KEY EMBEDDING_API_KEY TOOL_SANDBOX_API_KEY WEBUI_SE
   fi
 done
 
-mkdir -p data/open-webui data/tool-audit data/memory/backups data/workspaces models images run logs benchmarks/results
-chmod 700 data/open-webui data/tool-audit data/memory data/memory/backups
+mkdir -p data/open-webui data/tool-audit data/searxng/cache data/docling/artifacts data/docling/audit data/memory/backups data/workspaces models images run logs benchmarks/results
+chmod 700 data/open-webui data/tool-audit data/searxng data/searxng/cache data/docling data/docling/artifacts data/docling/audit data/memory data/memory/backups
 
 printf 'Checking Apptainer GPU passthrough...\n'
 "$runtime_bin" exec --nv docker://nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi >/dev/null

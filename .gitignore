@@ -7,6 +7,9 @@ images/*.sif
 data/open-webui/
 data/tool-audit/
 data/rag/
+data/searxng/
+data/docling/
+data/firefox-profile/
 data/memory/backups/
 data/workspaces/*
 !data/workspaces/.gitkeep

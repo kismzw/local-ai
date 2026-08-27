@@ -21,4 +21,14 @@ printf '6. Embeddings endpoint\n'
 python3 -c "import urllib.request, os; r=urllib.request.Request('http://${LLAMA_SERVER_BIND}:${EMBEDDING_SERVER_PORT}/v1/embeddings', data=b'{\"model\":\"qwen3-embedding-0.6b\",\"input\":\"RAG smoke test\"}', headers={'Authorization':'Bearer '+os.environ['EMBEDDING_API_KEY'],'Content-Type':'application/json'}); assert b'\"embedding\"' in urllib.request.urlopen(r, timeout=30).read()"
 printf '7. Tool sandbox and host isolation\n'
 ./tests/tool-isolation.sh
+printf '8. Tool bridge allowlisted mounts\n'
+./tests/tool-bridge-allowlist.sh
+printf '9. Codex tool bridge workflow\n'
+./tests/tool-bridge-codex.sh
+printf '10. SearXNG JSON search\n'
+curl -fsS "http://127.0.0.1:${SEARXNG_PORT}/search?q=Open+WebUI&format=json" | grep -q '"results"'
+printf '11. Web fetch isolation policy\n'
+./tests/web-fetch-isolation.sh
+printf '12. Docling gate health\n'
+curl -fsS "http://127.0.0.1:${DOCLING_GATE_PORT}/health" | grep -q '"status":"ok"'
 printf 'Smoke checks passed. See docs/TESTING.md for browser RAG and persistence checks.\n'
