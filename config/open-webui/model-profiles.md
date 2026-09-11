@@ -1,15 +1,15 @@
 # Logical chat profiles
 
 Create these under **Workspace → Models** after first login. Each profile points to
-`qwen3.8-27b`; profiles are Open WebUI-side presets, so changing the inference
+`${CHAT_MODEL_ALIAS}`; profiles are Open WebUI-side presets, so changing the inference
 backend later does not require UI redesign.
 
 | Profile | Base model | Suggested parameters | Capabilities | System prompt addition |
 | --- | --- | --- | --- | --- |
-| Qwen Fast | `qwen3.8-27b` | temperature `0.7`, max tokens `2048` | Web Search on; RAG/tools off | "Answer directly and concisely. Search the web only when current information would materially improve the answer; cite sources." |
-| Qwen Think | `qwen3.8-27b` | temperature `0.5`, max tokens `4096` | Web Search on; RAG optional, sandbox off | "Reason carefully. State assumptions, search current claims when useful, and cite sources." |
-| Qwen Research | `qwen3.8-27b` | temperature `0.3`, max tokens `4096` | Web Search and RAG on; sandbox only when requested | "Use attached, retrieved, and web sources as evidence. Clearly distinguish each from general knowledge and cite web sources." |
-| Qwen Codex | `qwen3.8-27b` | temperature `0.2`, max tokens `8192` | Qwen Codex Workspace tool on; web search/RAG off by default | See the required coding-agent prompt below. |
+| Qwen Fast | `${CHAT_MODEL_ALIAS}` | temperature `0.7`, max tokens `2048` | Web Search on; RAG/tools off | "Answer directly and concisely. Search the web only when current information would materially improve the answer; cite sources." |
+| Qwen Think | `${CHAT_MODEL_ALIAS}` | temperature `0.5`, max tokens `4096` | Web Search on; RAG optional, sandbox off | "Reason carefully. State assumptions, search current claims when useful, and cite sources." |
+| Qwen Research | `${CHAT_MODEL_ALIAS}` | temperature `0.3`, max tokens `4096` | Web Search and RAG on; sandbox only when requested | "Use attached, retrieved, and web sources as evidence. Clearly distinguish each from general knowledge and cite web sources." |
+| Qwen Codex | `${CHAT_MODEL_ALIAS}` | temperature `0.2`, max tokens `8192` | Qwen Codex Workspace tool on; web search/RAG off by default | See the required coding-agent prompt below. |
 
 Keep **Function Calling: Native** for every profile: Open WebUI's built-in web
 tools need it even when workspace tools are otherwise disabled. Tool access

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+# shellcheck source=common.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 load_env; ensure_dirs
 refresh=${1:-}
@@ -10,9 +11,11 @@ from pathlib import Path
 print(tomllib.loads(Path('config/apptainer/images.lock').read_text())[sys.argv[1]][sys.argv[2]])
 PY
 }
-verify() { local name=$1 image=$2 expected; expected=$(lock_value "$name" sif_sha256); printf '%s  %s\n' "$expected" "$image" | sha256sum --check --status || { printf 'SIF checksum mismatch for %s; use update-lock after intentional upgrade.\n' "$name" >&2; return 1; }; }
-pull_oci() { local name=$1 image=$2 source tmp; source=$(lock_value "$name" source); if [[ -f $image && $refresh != --refresh ]]; then verify "$name" "$image"; return; fi; tmp="${image}.partial"; rm -f "$tmp"; "$APPTAINER_BIN" pull --force "$tmp" "$source"; verify "$name" "$tmp"; mv -f "$tmp" "$image"; }
-build_tool() { local image=$1 tmp; if [[ -f $image && $refresh != --refresh ]]; then verify tool "$image"; return; fi; tmp="${image}.partial"; rm -f "$tmp"; "$APPTAINER_BIN" build --fakeroot "$tmp" config/apptainer/tool-sandbox.def; verify tool "$tmp"; mv -f "$tmp" "$image"; }
+receipt=images/receipts.toml
+verify() { local name=$1 image=$2 source=$3 definition=${4:-}; local -a args=(--receipt "$receipt" --name "$name" --source "$source" --image "$image"); [[ -z $definition ]] || args+=(--definition "$definition"); python3 scripts/image-receipts.py verify-or-adopt "${args[@]}"; }
+record() { local name=$1 image=$2 source=$3 definition=${4:-}; local -a args=(--receipt "$receipt" --name "$name" --source "$source" --image "$image"); [[ -z $definition ]] || args+=(--definition "$definition"); python3 scripts/image-receipts.py record "${args[@]}"; }
+pull_oci() { local name=$1 image=$2 source tmp; source=$(lock_value "$name" source); if [[ -f $image ]]; then verify "$name" "$image" "$source"; if [[ $refresh != --refresh ]]; then return 0; fi; fi; tmp="${image}.partial"; rm -f "$tmp"; "$APPTAINER_BIN" pull --force "$tmp" "$source"; mv -f "$tmp" "$image"; record "$name" "$image" "$source"; }
+build_tool() { local image=$1 source definition tmp; source=$(lock_value tool source); definition=$(lock_value tool definition); if [[ -f $image ]]; then verify tool "$image" "$source" "$definition"; if [[ $refresh != --refresh ]]; then return 0; fi; fi; tmp="${image}.partial"; rm -f "$tmp"; "$APPTAINER_BIN" build --fakeroot "$tmp" "$definition"; mv -f "$tmp" "$image"; record tool "$image" "$source" "$definition"; }
 pull_oci llama "$LLAMA_IMAGE"
 build_tool "$TOOL_IMAGE"
 pull_oci searxng "$SEARXNG_IMAGE"

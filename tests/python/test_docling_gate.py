@@ -74,7 +74,22 @@ def test_authentication_and_header_filtering():
     gate.require_key(None, "gate-key")
     with pytest.raises(gate.HTTPException):
         gate.require_key("Bearer nope", None)
-    assert "authorization" not in gate.DROP_HEADERS - {"authorization"}
+
+    async def receive():
+        return {"type": "http.request", "body": b"x", "more_body": False}
+
+    request = Request(
+        {
+            "type": "http", "method": "POST", "path": "/convert", "query_string": b"",
+            "headers": [
+                (b"authorization", b"Bearer gate-key"), (b"x-api-key", b"gate-key"),
+                (b"host", b"gate.local"), (b"content-length", b"1"),
+                (b"x-custom", b"preserve-me"),
+            ],
+        },
+        receive,
+    )
+    assert gate.upstream_headers(request) == {"x-custom": "preserve-me"}
 
 
 @pytest.mark.anyio

@@ -4,6 +4,7 @@
 __pycache__/
 *.py[cod]
 images/*.sif
+images/receipts.toml
 data/open-webui/
 data/tool-audit/
 data/rag/

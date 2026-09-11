@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Exercise the pinned Open WebUI URL validator without touching live UI data.
 set -Eeuo pipefail
+# shellcheck source=../scripts/common.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/common.sh"
 load_env
 

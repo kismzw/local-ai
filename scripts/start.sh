@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
+# shellcheck source=common.sh
 source scripts/common.sh
 load_env
 ./scripts/doctor.sh --preflight
@@ -13,7 +14,7 @@ for service in searxng docling llama embedding docling-gate tool-bridge open-web
   [[ $service != tool-bridge || $TOOL_BRIDGE_ENABLED == true ]] || continue
   unit="local-ai-${service}.service"
   if ! systemctl --user is-active --quiet "$unit"; then started=("$service" "${started[@]}"); systemctl --user start "$unit"; fi
-  case "$service" in llama) health=llama-server ;; embedding) health=embedding-server ;; *) health=$service ;; esac
+  health=$(./scripts/service-health-name.sh "$service")
   ./scripts/health-check.sh "$health"
 done
 systemctl --user start local-ai.target

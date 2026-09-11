@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+# shellcheck source=../scripts/common.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/common.sh"
 load_env
 
@@ -62,7 +63,10 @@ EOF
 )
 identity_response=$(bridge_call write "$identity_command")
 python3 -c 'import json, sys; reply=json.load(sys.stdin); assert reply["exit_code"] != 0, reply' <<<"$identity_response"
-! git -C "$test_dir/no-identity" rev-parse --verify HEAD >/dev/null 2>&1
+if git -C "$test_dir/no-identity" rev-parse --verify HEAD >/dev/null 2>&1; then
+  printf 'identity-free repository unexpectedly has a commit\n' >&2
+  exit 1
+fi
 
 printf '4. Output is capped and recorded in the audit log\n'
 output_response=$(bridge_call read "python3 -c \"print('x' * 12000)\"")

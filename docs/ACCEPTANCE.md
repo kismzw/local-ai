@@ -27,12 +27,13 @@ Knowledge upload also require the owner to complete first login in the browser.
 
 ## Recorded live evidence — 2026-09-11
 
-`systemd --user` units were linked and `local-ai.target` was enabled for login.
-The dependency-aware startup transaction reached all readiness endpoints, then
-`tests/smoke.sh` passed: inference, embeddings, GPU visibility, tool isolation,
-corrected read-only workspace/data allowlist checks, Codex bridge workflow,
-SearXNG, web-fetch policy, and Docling gate. Browser-owned acceptance remains
-outside this automated evidence.
+Host acceptance tests passed: `systemd --user` units were linked and
+`local-ai.target` was enabled for login. The dependency-aware startup
+transaction reached all readiness endpoints, then `tests/smoke.sh` passed:
+inference, embeddings, GPU visibility, tool isolation, corrected read-only
+workspace/data allowlist checks, Codex bridge workflow, SearXNG, web-fetch
+policy, and Docling gate. This is host acceptance evidence, not CI evidence;
+browser-owned acceptance remains outside it.
 
 | Requirement | Implementation evidence | Required live evidence |
 | --- | --- | --- |
@@ -50,13 +51,16 @@ outside this automated evidence.
 | Explicit long-term memory | Disabled Open WebUI memories + owner-managed YAML | `memory.sh` inspection/edit/delete/backup exercise |
 | Sandboxed Python/shell/git | Separate immutable Apptainer tool SIF and bridge | `tests/tool-isolation.sh` and OpenAPI manual test |
 | Codex-style coding workflow | Qwen Codex native adapter, writable bridge, and profile approval protocol | `tests/tool-bridge-codex.sh`; browser plan/approval/edit/test/commit exercise |
-| Restricted workspace binding | Explicit `/workspace:rw` bind only | `tests/tool-isolation.sh` |
+| Restricted workspace binding | Tool bridge mounts `/workspace` read-only by default, or read-write only when configured | `tests/tool-bridge-allowlist.sh` verifies mount mode and denied writes |
+| Optional data binding | Configured host directory is mounted only as `/data:ro` | `tests/tool-bridge-allowlist.sh` verifies mount mode and denied writes |
+| Hidden-path masking | Configured sensitive children are masked while ordinary adjacent files remain visible | `tests/tool-bridge-allowlist.sh` |
 | Home and secret-path isolation | `--cleanenv --containall --no-home` tool invocation | `tests/tool-isolation.sh` |
 | Tool-container network behavior | `--net --network none` is used when the host probe succeeds | Passed here: `tests/tool-isolation.sh` blocked DNS/egress; otherwise `NETWORK ISOLATION: NOT GUARANTEED` |
 | Backend replacement | OpenAI-compatible endpoint variables | Manual test 6 in `TESTING.md` |
 | Predictable lifecycle | start/stop/log/update/doctor scripts | Native start/stop/restart cycle |
 
-Current state: all automated Apptainer, inference API, embedding, benchmark,
-and tool-isolation checks have passed. The browser-owned acceptance items above
-remain intentionally unchecked until the owner completes first login and the
-listed deterministic UI tests.
+Current state: recorded host acceptance checks above have passed on the stated
+dates. CI validates CPU-only configuration, adapter, Python, and shell checks;
+it does not run GPU/Apptainer acceptance or benchmarks. The browser-owned
+acceptance items remain intentionally unchecked until the owner completes first
+login and the listed deterministic UI tests.

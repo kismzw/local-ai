@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# shellcheck source=common.sh
 source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
 load_env; ensure_dirs
 for command_name in curl sha256sum df; do command -v "$command_name" >/dev/null || { printf 'Missing %s\n' "$command_name" >&2; exit 1; }; done

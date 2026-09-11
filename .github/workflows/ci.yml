@@ -21,8 +21,12 @@ jobs:
           python3 scripts/config-check.py
           python3 scripts/render-open-webui-adapters.py --check
           ./tests/docs-config.sh
+          ./tests/start-service-routing.sh
+          ./tests/benchmark-context-routing.sh
           python3 -c 'import tomllib; tomllib.load(open("config/models.toml", "rb")); tomllib.load(open("config/apptainer/images.lock", "rb"))'
-          ! rg -n '(^|[^A-Z_])apptainer exec' scripts tests || false
+          if rg -n '(^|[^A-Z_])apptainer exec' scripts tests; then
+            exit 1
+          fi
       - name: Python checks
         run: |
           uv sync --project docling-gate --locked --group dev
@@ -31,4 +35,4 @@ jobs:
           uv run --project docling-gate --locked pytest tests/python
           uv run --project docling-gate --locked ruff check docling-gate tool-bridge scripts tests/python
       - name: Shell checks
-        run: shellcheck local-ai scripts/*.sh tests/*.sh
+        run: shellcheck -x -P SCRIPTDIR local-ai scripts/*.sh tests/*.sh

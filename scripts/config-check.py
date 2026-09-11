@@ -29,9 +29,17 @@ POSITIVE = (
     "WEB_LOADER_TIMEOUT_SECONDS", "WEB_FETCH_MAX_CONTENT_LENGTH",
 )
 REQUIRED = (
-    "LLAMA_IMAGE", "SEARXNG_IMAGE", "DOCLING_IMAGE", "MODEL_DIR", "OPEN_WEBUI_DATA_DIR",
+    "LLAMA_IMAGE", "SEARXNG_IMAGE", "DOCLING_IMAGE", "OPEN_WEBUI_VERSION", "OPEN_WEBUI_BIND",
+    "LLAMA_SERVER_BIND", "TOOL_BRIDGE_BIND", "MODEL_DIR", "DATA_DIR", "OPEN_WEBUI_DATA_DIR",
     "SEARXNG_CACHE_DIR", "DOCLING_ARTIFACTS_DIR", "DOCLING_AUDIT_DIR", "LLAMA_API_KEY",
     "EMBEDDING_API_KEY", "SEARXNG_SECRET", "DOCLING_GATE_API_KEY", "WEBUI_SECRET_KEY",
+    "MODEL_CONTEXT_SIZE", "MODEL_PARALLELISM", "MODEL_GPU_LAYERS", "MODEL_THREADS",
+    "MODEL_BATCH_SIZE", "MODEL_UBATCH_SIZE", "MODEL_KV_CACHE_K", "MODEL_KV_CACHE_V",
+    "RAG_CHUNK_SIZE", "RAG_CHUNK_OVERLAP", "WEB_SEARCH_ENABLED", "WEB_SEARCH_RESULT_COUNT",
+    "WEB_SEARCH_CONCURRENT_REQUESTS", "WEB_LOADER_CONCURRENT_REQUESTS", "WEB_LOADER_TIMEOUT_SECONDS",
+    "WEB_FETCH_MAX_CONTENT_LENGTH", "DOCLING_GATE_IDLE_SECONDS", "DOCLING_GATE_POLL_SECONDS",
+    "DOCLING_GATE_MAX_WAIT_SECONDS", "DOCLING_GATE_MAX_RETRIES", "DOCLING_MAX_SYNC_WAIT_SECONDS",
+    "LOG_MAX_BYTES", "LOG_ROTATION_COUNT",
 )
 PATHS = (
     "LLAMA_IMAGE", "TOOL_IMAGE", "SEARXNG_IMAGE", "DOCLING_IMAGE", "MODEL_DIR",
@@ -120,6 +128,9 @@ def validate(values: dict[str, str]) -> dict[str, str]:
     for name in ("TOOL_BRIDGE_ENABLED", "WEB_SEARCH_ENABLED"):
         if values.get(name, "") not in BOOLS:
             raise ConfigError(f"{name} must be true or false")
+    for name in ("OPEN_WEBUI_BIND", "LLAMA_SERVER_BIND", "TOOL_BRIDGE_BIND"):
+        if values[name] not in {"127.0.0.1", "::1", "localhost"}:
+            raise ConfigError(f"{name} must be a loopback address")
     seen: set[int] = set()
     for name in PORTS:
         integer(values, name)
@@ -131,6 +142,16 @@ def validate(values: dict[str, str]) -> dict[str, str]:
         if name in values:
             integer(values, name)
     integer(values, "DOCLING_GATE_IDLE_SECONDS", minimum=0)
+    integer(values, "RAG_CHUNK_OVERLAP", minimum=0)
+    if int(values["RAG_CHUNK_OVERLAP"]) >= int(values["RAG_CHUNK_SIZE"]):
+        raise ConfigError("RAG_CHUNK_OVERLAP must be smaller than RAG_CHUNK_SIZE")
+    gpu_layers = values["MODEL_GPU_LAYERS"]
+    if gpu_layers != "all":
+        try:
+            if int(gpu_layers) < 0:
+                raise ValueError
+        except ValueError as exc:
+            raise ConfigError("MODEL_GPU_LAYERS must be all or a non-negative integer") from exc
     if values["TOOL_BRIDGE_ENABLED"] == "true":
         for name in ("TOOL_IMAGE", "TOOL_SANDBOX_API_KEY", "TOOL_AUDIT_DIR", "WORKSPACE_DIR", "TOOL_WRITE_MODE", "TOOL_NETWORK_MODE"):
             if not values.get(name):
@@ -155,6 +176,10 @@ def validate(values: dict[str, str]) -> dict[str, str]:
     values["EMBEDDING_MODEL_FILE"] = models["embedding"]["filename"]
     values["CHAT_MODEL_ALIAS"] = models["chat"]["alias"]
     values["EMBEDDING_MODEL_ALIAS"] = models["embedding"]["alias"]
+    legacy_rag_alias = values.get("RAG_EMBEDDING_MODEL")
+    if legacy_rag_alias and legacy_rag_alias != values["EMBEDDING_MODEL_ALIAS"]:
+        raise ConfigError("RAG_EMBEDDING_MODEL is deprecated and conflicts with config/models.toml")
+    values["RAG_EMBEDDING_MODEL"] = values["EMBEDDING_MODEL_ALIAS"]
     values["LOCAL_AI_ROOT"] = str(ROOT)
     return values
 
@@ -179,7 +204,7 @@ def main() -> int:
         raw_values = parse_env(ENV_FILE)
         values = validate(raw_values)
         if not args.shell:
-            for name in ("MODEL_FILE", "EMBEDDING_MODEL_FILE"):
+            for name in ("MODEL_FILE", "EMBEDDING_MODEL_FILE", "RAG_EMBEDDING_MODEL"):
                 if name in raw_values:
                     print(f"Warning: {name} is deprecated; use config/models.toml.", file=sys.stderr)
         if args.write_systemd_env:
