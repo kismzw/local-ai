@@ -83,6 +83,20 @@ async def test_workspace_commands_are_serialized(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_sandbox_command_uses_a_dedicated_process_group(monkeypatch):
+    invocation = {}
+
+    def fake_run(*_args, **kwargs):
+        invocation.update(kwargs)
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="", timed_out=False)
+
+    monkeypatch.setattr(bridge, "run_bounded", fake_run)
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="secret")
+    await bridge.run_tool(bridge.RunRequest(command="true"), credentials)
+    assert invocation["start_new_session"] is True
+
+
+@pytest.mark.anyio
 async def test_audit_failure_reports_completed_command(monkeypatch):
     monkeypatch.setattr(bridge, "run_bounded", lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="ok", stderr="", timed_out=False))
     monkeypatch.setattr(bridge, "audit", lambda _event: (_ for _ in ()).throw(OSError("disk full")))

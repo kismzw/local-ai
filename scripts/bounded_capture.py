@@ -55,25 +55,40 @@ def run(command: Sequence[str], *, timeout: float, limit: int, cwd: str | None =
     readers = [threading.Thread(target=drain, args=(process.stdout, stdout), daemon=True), threading.Thread(target=drain, args=(process.stderr, stderr), daemon=True)]
     for reader in readers:
         reader.start()
+
+    def signal_process_group(signal_number: int) -> None:
+        try:
+            os.killpg(process.pid, signal_number)
+        except ProcessLookupError:
+            # The command and all of its children already exited.
+            pass
+
     timed_out = False
     try:
         process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         timed_out = True
         if start_new_session:
-            os.killpg(process.pid, signal.SIGTERM)
+            signal_process_group(signal.SIGTERM)
         else:
             process.terminate()
         try:
             process.wait(timeout=2)
         except subprocess.TimeoutExpired:
             if start_new_session:
-                os.killpg(process.pid, signal.SIGKILL)
+                signal_process_group(signal.SIGKILL)
             else:
                 process.kill()
             process.wait()
+        if start_new_session:
+            # The group leader may exit after SIGTERM while a child remains.  Kill
+            # any survivor before releasing the caller's serialization lock.
+            signal_process_group(signal.SIGKILL)
+    for reader in readers:
+        # The direct child is reaped and timed-out process groups have been killed,
+        # so each pipe will reach EOF.  Drain it completely before closing from this
+        # thread; closing first can race a reader and discard the final diagnostic.
+        reader.join()
     for stream in (process.stdout, process.stderr):
         stream.close()
-    for reader in readers:
-        reader.join(timeout=1)
     return Result(process.returncode if not timed_out else 124, stdout.text(), stderr.text(), timed_out)

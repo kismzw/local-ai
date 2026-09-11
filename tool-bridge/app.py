@@ -199,7 +199,16 @@ async def run_tool(payload: RunRequest, credentials: HTTPAuthorizationCredential
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
                 raise __import__("subprocess").TimeoutExpired(payload.command, payload.timeout_seconds)
-            result = await asyncio.to_thread(run_bounded, command, timeout=remaining, limit=output_limit())
+            # Apptainer can start payload children.  Give its invocation a distinct
+            # process group so a timeout terminates the complete sandbox tree before
+            # the workspace lock is released.
+            result = await asyncio.to_thread(
+                run_bounded,
+                command,
+                timeout=remaining,
+                limit=output_limit(),
+                start_new_session=True,
+            )
         finally:
             WORKSPACE_LOCK.release()
         stdout, stderr = limit_output(result.stdout, result.stderr)
