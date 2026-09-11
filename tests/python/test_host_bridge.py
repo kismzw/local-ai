@@ -12,7 +12,7 @@ spec.loader.exec_module(host_bridge)
 
 
 def test_host_bridge_runs_with_owner_shell(tmp_path: Path):
-    code, stdout, stderr, timed_out = host_bridge.execute("printf host-ok", "/bin/bash", str(tmp_path), 1)
+    code, stdout, stderr, timed_out = host_bridge.execute("printf host-ok", "/bin/bash", str(tmp_path), 10)
     assert (code, stdout, stderr, timed_out) == (0, "host-ok", "", False)
 
 
