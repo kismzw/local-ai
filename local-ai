@@ -82,11 +82,14 @@ open_app() {
 }
 
 install_launcher() {
-  local data_home applications_dir desktop_dir launcher desktop_copy
+  local data_home applications_dir desktop_dir launcher desktop_copy launcher_command
   data_home=${XDG_DATA_HOME:-"$HOME/.local/share"}
   applications_dir="$data_home/applications"
   desktop_dir=$(xdg-user-dir DESKTOP 2>/dev/null || true)
   launcher="$applications_dir/local-ai.desktop"
+  launcher_command=${app_root//\\/\\\\}
+  launcher_command=${launcher_command//\"/\\\"}
+  launcher_command="\"${launcher_command}/local-ai\""
   mkdir -p "$applications_dir"
   cat >"$launcher" <<EOF
 [Desktop Entry]
@@ -94,7 +97,7 @@ Version=1.0
 Type=Application
 Name=Local AI
 Comment=Open the local coding agent
-Exec=$app_root/local-ai open
+Exec=$launcher_command open
 Icon=utilities-terminal
 Terminal=false
 Categories=Development;Utility;
@@ -102,7 +105,7 @@ Actions=Close;
 
 [Desktop Action Close]
 Name=Close Local AI
-Exec=$app_root/local-ai close
+Exec=$launcher_command close
 EOF
   chmod 755 "$launcher"
   if [[ -n $desktop_dir && -d $desktop_dir ]]; then

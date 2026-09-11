@@ -5,7 +5,9 @@ root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
 
 load_env() {
-  eval "$(python3 "$root_dir/scripts/config-check.py" --shell)"
+  local rendered
+  rendered=$(python3 "$root_dir/scripts/config-check.py" --shell) || return $?
+  eval "$rendered"
   if [[ -z ${APPTAINER_BIN:-} ]]; then
     if command -v apptainer >/dev/null 2>&1; then APPTAINER_BIN=apptainer
     elif command -v singularity >/dev/null 2>&1; then APPTAINER_BIN=singularity

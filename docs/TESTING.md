@@ -6,6 +6,10 @@ sandbox execution/isolation. `./scripts/doctor.sh` gives a broader operator
 check. Track results in `docs/ACCEPTANCE.md` rather than inferring them from
 configuration alone.
 
+`smoke.sh` runs the writable Codex workflow only when both
+`TOOL_BRIDGE_ENABLED=true` and `TOOL_WRITE_MODE=read_write`; read-only bridge
+configurations still validate containment and allowlisted mounts.
+
 ## Automated web-fetch boundary check
 
 With the native Open WebUI service running, execute:

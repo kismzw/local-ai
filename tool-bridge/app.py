@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 APP = FastAPI(title="Local AI Restricted Tool Bridge", version="0.1.0")
 BEARER = HTTPBearer(auto_error=False)
+WORKSPACE_LOCK = asyncio.Lock()
 UI_PORT = os.environ.get("OPEN_WEBUI_PORT", "3000")
 APP.add_middleware(
     CORSMiddleware,
@@ -30,6 +31,9 @@ class RunRequest(BaseModel):
     command: str = Field(min_length=1, max_length=8000)
     mode: Literal["read", "write"] = "read"
     timeout_seconds: int = Field(default=30, ge=1, le=300)
+
+
+RunRequest.model_rebuild(_types_namespace={"Literal": Literal})
 
 
 def setting(name: str) -> str:
@@ -99,7 +103,7 @@ def bind_hidden_paths(command: list[str], workspace: Path) -> None:
         command.extend(["--bind", f"{mask}:/workspace/{relative}:ro"])
 
 
-def audit(event: dict) -> None:
+def audit_target() -> Path:
     directory = Path(setting("TOOL_AUDIT_DIR"))
     directory.mkdir(parents=True, exist_ok=True)
     import sys
@@ -107,6 +111,16 @@ def audit(event: dict) -> None:
     from log_rotate import rotate_from_environment
     target = directory / "tool-bridge.jsonl"
     rotate_from_environment(target)
+    return target
+
+
+def ensure_audit_writable() -> None:
+    with audit_target().open("a", encoding="utf-8"):
+        pass
+
+
+def audit(event: dict) -> None:
+    target = audit_target()
     with target.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(event, ensure_ascii=False) + "\n")
 
@@ -151,6 +165,7 @@ async def run_tool(payload: RunRequest, credentials: HTTPAuthorizationCredential
     started_monotonic = asyncio.get_running_loop().time()
     response: dict = {"exit_code": 125, "stdout": "", "stderr": "internal bridge error"}
     failure: str | None = None
+    audit_error: str | None = None
     try:
         workspace_path = Path(setting("WORKSPACE_DIR")).resolve()
         if not workspace_path.is_dir():
@@ -172,10 +187,13 @@ async def run_tool(payload: RunRequest, credentials: HTTPAuthorizationCredential
         if os.environ.get("TOOL_NETWORK_MODE") == "isolated":
             command.extend(["--net", "--network", "none"])
         command.extend([image, "/bin/sh", "-lc", payload.command])
-        result = await asyncio.to_thread(
-            __import__("subprocess").run, command, text=True, capture_output=True,
-            timeout=payload.timeout_seconds, check=False,
-        )
+        if payload.mode == "write":
+            ensure_audit_writable()
+        async with WORKSPACE_LOCK:
+            result = await asyncio.to_thread(
+                __import__("subprocess").run, command, text=True, capture_output=True,
+                timeout=payload.timeout_seconds, check=False,
+            )
         stdout, stderr = limit_output(result.stdout, result.stderr)
         response = {"exit_code": result.returncode, "stdout": stdout, "stderr": stderr}
     except __import__("subprocess").TimeoutExpired:
@@ -183,9 +201,16 @@ async def run_tool(payload: RunRequest, credentials: HTTPAuthorizationCredential
     except (OSError, RuntimeError) as error:
         failure = str(error)
         response = {"exit_code": 125, "stdout": "", "stderr": failure}
-    audit({"at": started.isoformat(), "mode": payload.mode, "command": payload.command,
-           "duration_ms": round((asyncio.get_running_loop().time() - started_monotonic) * 1000),
-           "timeout": response["exit_code"] == 124, "failure": failure, **response})
+    try:
+        audit({"at": started.isoformat(), "mode": payload.mode, "command": payload.command,
+               "duration_ms": round((asyncio.get_running_loop().time() - started_monotonic) * 1000),
+               "timeout": response["exit_code"] == 124, "failure": failure, **response})
+    except (OSError, RuntimeError) as error:
+        audit_error = str(error)
+        response["audit_status"] = "failed"
+        response["audit_error"] = audit_error
+    else:
+        response["audit_status"] = "recorded"
     if failure:
         raise HTTPException(status_code=503, detail="tool bridge configuration or runtime failure")
     return response

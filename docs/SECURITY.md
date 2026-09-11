@@ -16,6 +16,15 @@ tool execution from the system entirely. With `TOOL_WRITE_MODE=read_write`, the
 Qwen Codex tool deliberately has unrestricted command execution within the
 configured `/workspace` bind; it can delete or commit files there. The
 plan-before-edit rule is a model workflow, not an access-control boundary.
+Tool commands are serialized globally so a concurrent request cannot observe or
+mutate a workspace during another command. Write requests first verify that the
+audit log is writable; if recording the final result still fails, the response
+states that the command completed and that auditing failed, so callers must not
+blindly retry a mutation.
+
+The tool SIF's Python base image is digest-pinned and its apt packages resolve
+through a fixed Debian snapshot. Its local receipt verifies the built artifact
+and definition hash before every systemd-backed startup.
 
 Open WebUI's automatic memory feature is disabled. Long-term memory follows the
 explicit, owner-maintained YAML workflow in `docs/MEMORY.md`. Signups are also

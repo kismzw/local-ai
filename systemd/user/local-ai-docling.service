@@ -5,6 +5,7 @@ PartOf=local-ai.target
 [Service]
 Type=simple
 EnvironmentFile=@LOCAL_AI_ROOT@/run/local-ai.env
+ExecStartPre=@LOCAL_AI_ROOT@/scripts/verify-service-artifact.sh docling
 ExecStart=@LOCAL_AI_ROOT@/scripts/service-command.sh docling
 ExecStartPost=@LOCAL_AI_ROOT@/scripts/health-check.sh docling
 Restart=on-failure

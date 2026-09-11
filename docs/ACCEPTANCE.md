@@ -35,6 +35,12 @@ workspace/data allowlist checks, Codex bridge workflow, SearXNG, web-fetch
 policy, and Docling gate. This is host acceptance evidence, not CI evidence;
 browser-owned acceptance remains outside it.
 
+Post-remediation verification on this host also passed: every SIF-backed unit
+was restarted directly through systemd and passed its receipt `ExecStartPre`;
+Docling gate and tool bridge started with locked, no-sync uv environments; and
+the full smoke suite passed after those restarts. Model download re-runs
+verified the existing checksummed artifacts without downloading them again.
+
 | Requirement | Implementation evidence | Required live evidence |
 | --- | --- | --- |
 | Apptainer GPU passthrough | `apptainer --nv` configuration | CUDA OCI `nvidia-smi` test |

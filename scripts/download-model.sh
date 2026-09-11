@@ -31,6 +31,14 @@ fetch() {
   target="$MODEL_DIR/$filename"
   partial="${target}.partial"
   printf '\nRepository: %s\nFile: %s\nTarget: %s\n' "$repo" "$filename" "$target"
+  if [[ -f $target ]]; then
+    if printf '%s  %s\n' "$sha" "$target" | sha256sum --check --status; then
+      printf 'Already verified: %s\n' "$filename"
+      return 0
+    fi
+    printf 'Existing model checksum mismatch; downloading a replacement: %s\n' "$filename" >&2
+  fi
+  if [[ $role == chat ]]; then require_space_gib 25; else require_space_gib 2; fi
   curl --fail --location --continue-at - --retry 5 --retry-delay 3 \
     "https://huggingface.co/${repo}/resolve/main/${filename}?download=true" -o "$partial"
   printf '%s  %s\n' "$sha" "$partial" | sha256sum --check --status
@@ -38,8 +46,6 @@ fetch() {
   printf 'SHA-256 verified for %s.\n' "$filename"
 }
 
-require_space_gib 25
 fetch chat
-require_space_gib 2
 fetch embedding
 printf '\nDownloads complete and both checksums were verified.\n'

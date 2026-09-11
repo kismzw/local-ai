@@ -2,8 +2,16 @@ Bootstrap: docker
 From: python@sha256:528257d48c1da0dcecc2e725d1ae34498d60c965f1241e39cd6a85a8859bdf84
 
 %post
-    apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git bash ca-certificates
+    # Keep tool package resolution stable; the SIF receipt detects artifact changes.
+    rm -f /etc/apt/sources.list.d/*.sources
+    printf '%s\n' \
+        'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20250414T000000Z bookworm main' \
+        > /etc/apt/sources.list
+    apt-get -o Acquire::Check-Valid-Until=false update
+    # The base image can contain a later security revision. Align the Perl
+    # family to this immutable snapshot before installing Git.
+    DEBIAN_FRONTEND=noninteractive apt-get --allow-downgrades install -y --no-install-recommends \
+        git bash ca-certificates perl=5.36.0-7+deb12u1 perl-base=5.36.0-7+deb12u1
     rm -rf /var/lib/apt/lists/*
 
 %environment

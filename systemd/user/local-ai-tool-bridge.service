@@ -6,6 +6,7 @@ PartOf=local-ai.target
 Type=simple
 EnvironmentFile=@LOCAL_AI_ROOT@/run/local-ai.env
 ExecCondition=@LOCAL_AI_ROOT@/scripts/tool-enabled.sh
+ExecStartPre=@LOCAL_AI_ROOT@/scripts/verify-service-artifact.sh tool-bridge
 ExecStart=@LOCAL_AI_ROOT@/scripts/service-command.sh tool-bridge
 ExecStartPost=@LOCAL_AI_ROOT@/scripts/health-check.sh tool-bridge
 Restart=on-failure

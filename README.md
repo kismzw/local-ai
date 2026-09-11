@@ -9,8 +9,9 @@ default and persists only application data in `data/`.
 
 Prerequisites: Apptainer (or Singularity-compatible command), a current NVIDIA
 driver, `curl`, and user-space `uv`. Docker, Docker Compose, NVIDIA Container
-Toolkit, and sudo are not used. `scripts/install-uv.sh` installs uv and managed
-Python 3.11 under the current user only.
+Toolkit, and sudo are not used. `scripts/install-uv.sh` checksum-verifies a
+pinned uv release and installs a fixed Python 3.11 patch release under the
+current user only.
 
 ```bash
 git clone <your-repository-url> local-ai

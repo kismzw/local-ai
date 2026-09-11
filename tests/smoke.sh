@@ -24,8 +24,12 @@ if [[ $TOOL_BRIDGE_ENABLED == true ]]; then
   ./tests/tool-isolation.sh
   printf '8. Tool bridge allowlisted mounts\n'
   ./tests/tool-bridge-allowlist.sh
-  printf '9. Codex tool bridge workflow\n'
-  ./tests/tool-bridge-codex.sh
+  if [[ $TOOL_WRITE_MODE == read_write ]]; then
+    printf '9. Codex tool bridge workflow\n'
+    ./tests/tool-bridge-codex.sh
+  else
+    printf '9. Codex writable workflow skipped (TOOL_WRITE_MODE=read_only).\n'
+  fi
 fi
 printf '10. SearXNG JSON search\n'
 curl -fsS "http://127.0.0.1:${SEARXNG_PORT}/search?q=Open+WebUI&format=json" | grep -q '"results"'
