@@ -16,8 +16,9 @@ Apptainer normally shares the host network. Both llama servers bind explicitly
 to `127.0.0.1`, and no port mapping is used. Open WebUI uses only
 OpenAI-compatible endpoints. Replacing llama.cpp changes
 endpoint/model configuration, not the UI, data, RAG, or sandbox boundary. The
-initial 32k context uses one slot to protect KV-cache room on a 32 GB GPU; test
-64k with the included benchmark before adopting it.
+default 65536-token context uses one slot to protect KV-cache room on a 32 GB
+GPU; use the included benchmark to validate a lower or higher context choice on
+the target hardware.
 
 Vision is deliberately not claimed: it requires a selected multimodal Qwen
 GGUF, matching projector, and verified llama.cpp image-input support. Apptainer

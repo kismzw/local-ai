@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
 
 import pytest
@@ -67,3 +68,42 @@ def test_invalid_rag_overlap_is_rejected(tmp_path):
     values["RAG_CHUNK_OVERLAP"] = values["RAG_CHUNK_SIZE"]
     with pytest.raises(config_check.ConfigError, match="smaller"):
         config_check.validate(values)
+
+
+def test_ipv6_loopback_is_rejected(tmp_path):
+    values = valid_values(tmp_path)
+    values["LLAMA_SERVER_BIND"] = "::1"
+    with pytest.raises(config_check.ConfigError, match="loopback"):
+        config_check.validate(values)
+
+
+def test_tool_output_limit_has_a_safe_default(tmp_path):
+    values = valid_values(tmp_path)
+    values.pop("TOOL_MAX_OUTPUT_CHARS", None)
+    assert config_check.validate(values)["TOOL_MAX_OUTPUT_CHARS"] == "6000"
+
+
+def test_env_permissions_require_owner_only(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("KEY=value\n", encoding="utf-8")
+    os.chmod(env_file, 0o600)
+    config_check.validate_env_permissions(env_file)
+    for mode in (0o640, 0o644):
+        os.chmod(env_file, mode)
+        with pytest.raises(config_check.ConfigError, match="owner-only"):
+            config_check.validate_env_permissions(env_file)
+
+
+def test_systemd_environment_is_created_owner_only(tmp_path):
+    output = tmp_path / "run" / "local-ai.env"
+    config_check.write_systemd_env(output, {"SECRET": "value"})
+    assert output.read_text(encoding="utf-8") == 'SECRET="value"\n'
+    assert output.stat().st_mode & 0o777 == 0o600
+
+
+def test_open_webui_version_must_match_locked_runtime(tmp_path, monkeypatch):
+    project = tmp_path / "pyproject.toml"
+    project.write_text('[project]\ndependencies = ["open-webui==9.9.9"]\n', encoding="utf-8")
+    monkeypatch.setattr(config_check, "OPEN_WEBUI_PROJECT", project)
+    with pytest.raises(config_check.ConfigError, match="OPEN_WEBUI_VERSION"):
+        config_check.validate(valid_values(tmp_path))

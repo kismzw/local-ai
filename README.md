@@ -16,8 +16,8 @@ Python 3.11 under the current user only.
 git clone <your-repository-url> local-ai
 cd local-ai
 cp .env.example .env
-./scripts/setup.sh
 ./scripts/install-uv.sh
+./scripts/setup.sh
 ./scripts/pull-images.sh
 ./scripts/download-model.sh
 ./scripts/download-docling-models.sh
@@ -26,13 +26,17 @@ cp .env.example .env
 
 Open `http://${OPEN_WEBUI_BIND}:${OPEN_WEBUI_PORT}` using your `.env` values and create the one permitted initial account; it
 becomes the admin. Later signups are disabled. The application runs in offline
-mode after image and model downloads complete.
+mode after setup has synchronized the locked Python dependencies and image/model
+downloads complete.
 `./scripts/stop.sh`, `./scripts/logs.sh`, and `./scripts/update.sh` manage the
 stack. `setup.sh` enables a user systemd target so the stack starts at login;
 it does not enable lingering after logout. Model identity is checksum verified
 in `config/models.toml`, and normal updates refresh only digest-locked SIFs.
 Use `scripts/update-lock.py` only after deliberately selecting and validating a
 new upstream digest.
+Existing SIFs created before receipt tracking require one explicit migration:
+`./scripts/pull-images.sh --adopt-existing`. Normal pulls then fail closed if a
+receipt is missing or does not match the local artifact.
 
 ## Everyday use
 
@@ -58,7 +62,7 @@ managed with
 - Web search: SearXNG runs locally at `127.0.0.1:8082`; select lowercase
   `searxng` and leave the web loader at **Default** (the safe-web loader) in
   the one-time Admin UI setup in `config/open-webui/web-search.md`.
-- Back up: stop services and copy `data/open-webui`, `data/memory`, `.env`, and `images/*.sif` to encrypted storage.
+- Back up: stop services and copy `data/open-webui`, `data/memory`, `.env`, `images/*.sif`, and `images/receipts.toml` to encrypted storage.
 
 See [architecture](docs/ARCHITECTURE.md), [security](docs/SECURITY.md),
 [RAG](docs/RAG.md), [memory](docs/MEMORY.md), [tools](docs/TOOLS.md), and

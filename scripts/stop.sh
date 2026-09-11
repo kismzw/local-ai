@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
-./scripts/systemd.sh prepare
 if (($#)); then
   for service in "$@"; do systemctl --user stop "local-ai-${service}.service" || true; done
 else

@@ -17,12 +17,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Validate configuration and locks
         run: |
-          cp .env.example .env
+          install -m 600 .env.example .env
           python3 scripts/config-check.py
           python3 scripts/render-open-webui-adapters.py --check
           ./tests/docs-config.sh
           ./tests/start-service-routing.sh
           ./tests/benchmark-context-routing.sh
+          ./tests/optional-tool-contract.sh
+          ./tests/stop-invalid-config.sh
           python3 -c 'import tomllib; tomllib.load(open("config/models.toml", "rb")); tomllib.load(open("config/apptainer/images.lock", "rb"))'
           if rg -n '(^|[^A-Z_])apptainer exec' scripts tests; then
             exit 1
@@ -31,6 +33,7 @@ jobs:
         run: |
           uv sync --project docling-gate --locked --group dev
           uv sync --project tool-bridge --locked --group dev
+          uv sync --project open-webui-runtime --locked
           uv run --project docling-gate --locked python -m compileall docling-gate scripts
           uv run --project docling-gate --locked pytest tests/python
           uv run --project docling-gate --locked ruff check docling-gate tool-bridge scripts tests/python

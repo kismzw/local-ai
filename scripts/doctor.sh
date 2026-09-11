@@ -13,6 +13,18 @@ check 'llama.cpp SIF image' test -f "$LLAMA_IMAGE"
 check 'SearXNG SIF image' test -f "$SEARXNG_IMAGE"
 check 'Docling CUDA SIF image' test -f "$DOCLING_IMAGE"
 if [[ $TOOL_BRIDGE_ENABLED == true ]]; then check 'tool SIF image' test -f "$TOOL_IMAGE"; fi
+receipt=images/receipts.toml
+receipt_check() { local name=$1 image=$2 source=${3:-} definition=${4:-}; local -a args=(--receipt "$receipt" --name "$name" --image "$image"); [[ -z $source ]] || args+=(--source "$source"); [[ -z $definition ]] || args+=(--definition "$definition"); check "$name SIF receipt" python3 scripts/image-receipts.py verify "${args[@]}"; }
+lock_value() { python3 - "$1" "$2" <<'PY'
+import sys, tomllib
+from pathlib import Path
+print(tomllib.loads(Path('config/apptainer/images.lock').read_text())[sys.argv[1]][sys.argv[2]])
+PY
+}
+receipt_check llama "$LLAMA_IMAGE" "$(lock_value llama source)"
+receipt_check searxng "$SEARXNG_IMAGE" "$(lock_value searxng source)"
+receipt_check docling "$DOCLING_IMAGE" "$(lock_value docling source)"
+if [[ $TOOL_BRIDGE_ENABLED == true ]]; then receipt_check tool "$TOOL_IMAGE" "" "$(lock_value tool definition)"; fi
 check "primary model exists (${MODEL_FILE})" test -f "${MODEL_DIR}/${MODEL_FILE}"
 check "embedding model exists (${EMBEDDING_MODEL_FILE})" test -f "${MODEL_DIR}/${EMBEDDING_MODEL_FILE}"
 for item in "open-webui:$OPEN_WEBUI_PORT" "llama:$LLAMA_SERVER_PORT" "embedding:$EMBEDDING_SERVER_PORT" "searxng:$SEARXNG_PORT" "docling-gate:$DOCLING_GATE_PORT" "docling:$DOCLING_PORT"; do

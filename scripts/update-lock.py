@@ -8,7 +8,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parent.parent
 lock = root / "config/apptainer/images.lock"
 parser = argparse.ArgumentParser()
-parser.add_argument("name", choices=("llama", "tool", "searxng", "docling"))
+parser.add_argument("name", choices=("llama", "searxng", "docling"))
 parser.add_argument("source", help="digest-pinned docker://...@sha256:<digest>")
 args = parser.parse_args()
 if not re.fullmatch(r"docker://[^@]+@sha256:[0-9a-f]{64}", args.source):

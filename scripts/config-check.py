@@ -6,13 +6,16 @@ import argparse
 import os
 import re
 import shlex
+import stat
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE = ROOT / ".env"
 MODELS_FILE = ROOT / "config/models.toml"
+OPEN_WEBUI_PROJECT = ROOT / "open-webui-runtime/pyproject.toml"
 KEY = re.compile(r"^[A-Z][A-Z0-9_]*$")
 BOOLS = {"true", "false"}
 PORTS = (
@@ -74,6 +77,14 @@ def parse_env(path: Path) -> dict[str, str]:
     return values
 
 
+def validate_env_permissions(path: Path) -> None:
+    if not path.is_file():
+        raise ConfigError("Missing .env; copy .env.example first.")
+    mode = stat.S_IMODE(path.stat().st_mode)
+    if mode & 0o077:
+        raise ConfigError(f"{path.name} must be owner-only (chmod 600 {path.name})")
+
+
 def integer(values: dict[str, str], name: str, *, minimum: int = 1) -> None:
     raw = values.get(name, "")
     try:
@@ -114,11 +125,28 @@ def load_models() -> dict[str, dict[str, str]]:
     return result
 
 
+def open_webui_version() -> str:
+    try:
+        parsed = tomllib.loads(OPEN_WEBUI_PROJECT.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"Invalid {OPEN_WEBUI_PROJECT.relative_to(ROOT)}: {exc}") from exc
+    dependencies = parsed.get("project", {}).get("dependencies", [])
+    if not isinstance(dependencies, list):
+        raise ConfigError("open-webui-runtime dependencies must be a list")
+    for dependency in dependencies:
+        if isinstance(dependency, str):
+            match = re.fullmatch(r"open-webui==([^=\s]+)", dependency)
+            if match:
+                return match.group(1)
+    raise ConfigError("open-webui-runtime must pin open-webui with ==")
+
+
 def validate(values: dict[str, str]) -> dict[str, str]:
     defaults = {
         "TOOL_BRIDGE_ENABLED": "false", "TOOL_DATA_DIR": "", "TOOL_HIDDEN_PATHS": "",
         "DOCLING_GATE_IDLE_SECONDS": "10", "DOCLING_GATE_MAX_UNKNOWN_POLLS": "3",
         "LOG_MAX_BYTES": "10485760", "LOG_ROTATION_COUNT": "5", "APPTAINER_BIN": "",
+        "TOOL_MAX_OUTPUT_CHARS": "6000",
     }
     for key, value in defaults.items():
         values.setdefault(key, value)
@@ -129,7 +157,7 @@ def validate(values: dict[str, str]) -> dict[str, str]:
         if values.get(name, "") not in BOOLS:
             raise ConfigError(f"{name} must be true or false")
     for name in ("OPEN_WEBUI_BIND", "LLAMA_SERVER_BIND", "TOOL_BRIDGE_BIND"):
-        if values[name] not in {"127.0.0.1", "::1", "localhost"}:
+        if values[name] not in {"127.0.0.1", "localhost"}:
             raise ConfigError(f"{name} must be a loopback address")
     seen: set[int] = set()
     for name in PORTS:
@@ -168,6 +196,8 @@ def validate(values: dict[str, str]) -> dict[str, str]:
     if values["TOOL_BRIDGE_ENABLED"] == "true" and not Path(values["WORKSPACE_DIR"]).is_dir() and Path(values["WORKSPACE_DIR"]).exists():
         raise ConfigError("WORKSPACE_DIR must be a directory")
     models = load_models()
+    if values["OPEN_WEBUI_VERSION"] != open_webui_version():
+        raise ConfigError("OPEN_WEBUI_VERSION must match open-webui-runtime/pyproject.toml")
     for env_name, role in (("MODEL_FILE", "chat"), ("EMBEDDING_MODEL_FILE", "embedding")):
         legacy = values.get(env_name)
         if legacy and legacy != models[role]["filename"]:
@@ -195,12 +225,24 @@ def emit_systemd(values: dict[str, str]) -> str:
     return "\n".join(f"{key}={quoted(value)}" for key, value in sorted(values.items())) + "\n"
 
 
+def write_systemd_env(output: Path, values: dict[str, str]) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=output.parent, delete=False) as stream:
+        stream.write(emit_systemd(values))
+        stream.flush()
+        os.fsync(stream.fileno())
+        temp = Path(stream.name)
+    os.chmod(temp, 0o600)
+    os.replace(temp, output)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--shell", action="store_true")
     parser.add_argument("--write-systemd-env", action="store_true")
     args = parser.parse_args()
     try:
+        validate_env_permissions(ENV_FILE)
         raw_values = parse_env(ENV_FILE)
         values = validate(raw_values)
         if not args.shell:
@@ -209,9 +251,7 @@ def main() -> int:
                     print(f"Warning: {name} is deprecated; use config/models.toml.", file=sys.stderr)
         if args.write_systemd_env:
             output = ROOT / "run/local-ai.env"
-            output.parent.mkdir(parents=True, exist_ok=True)
-            output.write_text(emit_systemd(values), encoding="utf-8")
-            os.chmod(output, 0o600)
+            write_systemd_env(output, values)
         if args.shell:
             sys.stdout.write(emit_shell(values))
         elif not args.write_systemd_env:

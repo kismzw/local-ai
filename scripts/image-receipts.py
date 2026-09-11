@@ -52,34 +52,41 @@ def write(path: Path, receipts: dict[str, dict[str, str]]) -> None:
     os.replace(temp, path)
 
 
-def expected(source: str, image: Path, definition: Path | None) -> dict[str, str]:
+def expected(source: str | None, image: Path, definition: Path | None) -> dict[str, str]:
     entry = {
-        "source": source,
         "artifact_sha256": sha256_file(image),
         "accepted_at": datetime.now(timezone.utc).isoformat(),
     }
+    if source is not None:
+        entry["source"] = source
     if definition is not None:
         entry["definition_sha256"] = sha256_file(definition)
     return entry
 
 
-def verify_or_adopt(receipt: Path, name: str, source: str, image: Path, definition: Path | None) -> str:
+def verify(receipt: Path, name: str, source: str | None, image: Path, definition: Path | None) -> str:
     receipts = load(receipt)
     actual = expected(source, image, definition)
     recorded = receipts.get(name)
     if recorded is None:
-        receipts[name] = actual
-        write(receipt, receipts)
-        return "adopted"
-    for key in ("source", "artifact_sha256"):
+        raise ReceiptError(f"receipt is missing for {name}; use adopt for an intentional migration")
+    for key in ("artifact_sha256",):
         if recorded.get(key) != actual[key]:
             raise ReceiptError(f"receipt mismatch for {name}: {key}")
+    if source is not None and recorded.get("source") != source:
+        raise ReceiptError(f"receipt mismatch for {name}: source")
     if definition is not None and recorded.get("definition_sha256") != actual["definition_sha256"]:
         raise ReceiptError(f"receipt mismatch for {name}: definition_sha256")
     return "verified"
 
 
-def record(receipt: Path, name: str, source: str, image: Path, definition: Path | None) -> None:
+def record(receipt: Path, name: str, source: str | None, image: Path, definition: Path | None) -> None:
+    receipts = load(receipt)
+    receipts[name] = expected(source, image, definition)
+    write(receipt, receipts)
+
+
+def adopt(receipt: Path, name: str, source: str | None, image: Path, definition: Path | None) -> None:
     receipts = load(receipt)
     receipts[name] = expected(source, image, definition)
     write(receipt, receipts)
@@ -87,16 +94,18 @@ def record(receipt: Path, name: str, source: str, image: Path, definition: Path 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("operation", choices=("verify-or-adopt", "record"))
+    parser.add_argument("operation", choices=("verify", "record", "adopt"))
     parser.add_argument("--receipt", type=Path, required=True)
     parser.add_argument("--name", required=True)
-    parser.add_argument("--source", required=True)
+    parser.add_argument("--source")
     parser.add_argument("--image", type=Path, required=True)
     parser.add_argument("--definition", type=Path)
     args = parser.parse_args()
     try:
-        if args.operation == "verify-or-adopt":
-            print(verify_or_adopt(args.receipt, args.name, args.source, args.image, args.definition))
+        if args.operation == "verify":
+            print(verify(args.receipt, args.name, args.source, args.image, args.definition))
+        elif args.operation == "adopt":
+            adopt(args.receipt, args.name, args.source, args.image, args.definition)
         else:
             record(args.receipt, args.name, args.source, args.image, args.definition)
     except ReceiptError as exc:

@@ -7,4 +7,5 @@ if rg -n '75% of the configured context|exactly one configured host bind|CORS_AL
 fi
 python3 scripts/render-open-webui-adapters.py --check
 python3 scripts/config-check.py
+uv lock --check --project open-webui-runtime
 printf 'Documentation/configuration drift checks passed.\n'

@@ -5,11 +5,13 @@ root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
 
 runtime_bin=$(command -v apptainer || command -v singularity || true)
+uv_bin=${UV_BIN:-"$HOME/.local/bin/uv"}
 need=()
 for command_name in curl python3 openssl; do
   command -v "$command_name" >/dev/null 2>&1 || need+=("$command_name")
 done
 if [[ -z "$runtime_bin" ]]; then need+=("apptainer-or-singularity"); fi
+[[ -x $uv_bin ]] || need+=("uv (run scripts/install-uv.sh first)")
 if ((${#need[@]})); then
   printf 'Missing prerequisite(s): %s\n' "${need[*]}" >&2
   printf 'Apptainer, curl, Python and OpenSSL must be available on PATH.\n' >&2
@@ -20,6 +22,7 @@ if [[ ! -f .env ]]; then
   cp .env.example .env
   printf 'Created .env from .env.example.\n'
 fi
+chmod 600 .env
 
 ensure_variable() {
   local name=$1 value=$2
@@ -66,5 +69,8 @@ chmod 700 data/open-webui data/tool-audit data/searxng data/searxng/cache data/d
 printf 'Checking Apptainer GPU passthrough...\n'
 "$runtime_bin" exec --nv docker://nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi >/dev/null
 python3 scripts/config-check.py
+"$uv_bin" sync --project docling-gate --locked
+"$uv_bin" sync --project tool-bridge --locked
+"$uv_bin" sync --project open-webui-runtime --locked
 ./scripts/systemd.sh install
 printf 'Setup complete. Run ./scripts/pull-images.sh and ./scripts/download-model.sh, then ./scripts/start.sh.\n'
