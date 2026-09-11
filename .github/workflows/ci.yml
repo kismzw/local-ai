@@ -13,8 +13,8 @@ jobs:
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v5
-      - name: Install ShellCheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Install shell test dependencies
+        run: sudo apt-get update && sudo apt-get install -y ripgrep shellcheck
       - name: Validate configuration and locks
         run: |
           install -m 600 .env.example .env
