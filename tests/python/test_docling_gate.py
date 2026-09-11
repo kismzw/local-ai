@@ -56,6 +56,12 @@ async def test_metrics_fallback_busy_idle_and_malformed():
 
 
 @pytest.mark.anyio
+async def test_unknown_slots_schema_falls_back_to_metrics():
+    slots = httpx.Response(200, json=[{"unexpected": "value"}])
+    assert await state_for(slots, httpx.Response(200, text="llamacpp_slots_processing 1\n")) is gate.InferenceState.BUSY
+
+
+@pytest.mark.anyio
 async def test_unknown_probe_fails_safe(monkeypatch):
     async def unknown(_client):
         return gate.InferenceState.UNKNOWN

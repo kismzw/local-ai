@@ -75,7 +75,10 @@ async def inference_state(client: httpx.AsyncClient) -> InferenceState:
         if response.is_success:
             slots = response.json()
             if isinstance(slots, list):
-                return InferenceState.BUSY if any(slot.get("is_processing", False) for slot in slots if isinstance(slot, dict)) else InferenceState.IDLE
+                if not slots:
+                    pass
+                elif all(isinstance(slot, dict) and isinstance(slot.get("is_processing"), bool) for slot in slots):
+                    return InferenceState.BUSY if any(slot["is_processing"] for slot in slots) else InferenceState.IDLE
     except (httpx.HTTPError, ValueError):
         pass
 
@@ -187,10 +190,14 @@ async def proxy(
         status = error.status_code if isinstance(error, HTTPException) else 503
         raise HTTPException(status_code=status, detail=failure) from error
     finally:
-        append_audit({"at": started.isoformat(), "method": request.method, "path": f"/{path}",
-                      "status": response.status_code if response else 503, "bytes": len(body),
-                      "retry_count": max(0, attempts - 1), "duration_ms": round((asyncio.get_running_loop().time() - started_monotonic) * 1000),
-                      "failure": failure})
+        try:
+            append_audit({"at": started.isoformat(), "method": request.method, "path": f"/{path}",
+                          "status": response.status_code if response else 503, "bytes": len(body),
+                          "retry_count": max(0, attempts - 1), "duration_ms": round((asyncio.get_running_loop().time() - started_monotonic) * 1000),
+                          "failure": failure})
+        except OSError:
+            # Conversion result remains authoritative if the audit filesystem is full.
+            pass
     assert response is not None
     headers = {key: value for key, value in response.headers.items() if key.lower() in {"content-type", "content-disposition"}}
     return Response(content=response.content, status_code=response.status_code, headers=headers)

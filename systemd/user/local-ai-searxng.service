@@ -4,9 +4,9 @@ PartOf=local-ai.target
 
 [Service]
 Type=simple
-EnvironmentFile=@LOCAL_AI_ROOT@/run/local-ai.env
-ExecStartPre=@LOCAL_AI_ROOT@/scripts/verify-service-artifact.sh searxng
-ExecStart=@LOCAL_AI_ROOT@/scripts/service-command.sh searxng
-ExecStartPost=@LOCAL_AI_ROOT@/scripts/health-check.sh searxng
+EnvironmentFile=@LOCAL_AI_ROOT_SYSTEMD@/run/local-ai.env
+ExecStartPre="@LOCAL_AI_ROOT@/scripts/verify-service-artifact.sh" searxng
+ExecStart="@LOCAL_AI_ROOT@/scripts/service-command.sh" searxng
+ExecStartPost="@LOCAL_AI_ROOT@/scripts/health-check.sh" searxng
 Restart=on-failure
 RestartSec=5

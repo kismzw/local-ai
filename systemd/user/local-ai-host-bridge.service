@@ -1,0 +1,12 @@
+[Unit]
+Description=Local AI full desktop host bridge
+PartOf=local-ai.target
+
+[Service]
+Type=simple
+EnvironmentFile=@LOCAL_AI_ROOT_SYSTEMD@/run/local-ai.env
+ExecCondition="@LOCAL_AI_ROOT@/scripts/host-tool-enabled.sh"
+ExecStart="@LOCAL_AI_ROOT@/scripts/service-command.sh" host-bridge
+ExecStartPost="@LOCAL_AI_ROOT@/scripts/health-check.sh" host-bridge
+Restart=on-failure
+RestartSec=5

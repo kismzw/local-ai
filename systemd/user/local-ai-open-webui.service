@@ -6,8 +6,8 @@ After=local-ai-llama.service local-ai-embedding.service local-ai-docling-gate.se
 
 [Service]
 Type=simple
-EnvironmentFile=@LOCAL_AI_ROOT@/run/local-ai.env
-ExecStart=@LOCAL_AI_ROOT@/scripts/service-command.sh open-webui
-ExecStartPost=@LOCAL_AI_ROOT@/scripts/health-check.sh open-webui
+EnvironmentFile=@LOCAL_AI_ROOT_SYSTEMD@/run/local-ai.env
+ExecStart="@LOCAL_AI_ROOT@/scripts/service-command.sh" open-webui
+ExecStartPost="@LOCAL_AI_ROOT@/scripts/health-check.sh" open-webui
 Restart=on-failure
 RestartSec=5

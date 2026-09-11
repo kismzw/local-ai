@@ -26,6 +26,12 @@ The tool SIF's Python base image is digest-pinned and its apt packages resolve
 through a fixed Debian snapshot. Its local receipt verifies the built artifact
 and definition hash before every systemd-backed startup.
 
+The optional Full Desktop Shell is deliberately outside this containment model.
+When `HOST_TOOL_ENABLED=true`, authenticated requests execute as the owner
+Linux user, with that user's filesystem, process, network, and available SSH
+agent authority. It is loopback-only, separately keyed, serialized, and fully
+audited, but it is not a sandbox. Keep it disabled for web-research profiles.
+
 Open WebUI's automatic memory feature is disabled. Long-term memory follows the
 explicit, owner-maintained YAML workflow in `docs/MEMORY.md`. Signups are also
 disabled after the first administrator account. The UI has a 50 MB, ten-file

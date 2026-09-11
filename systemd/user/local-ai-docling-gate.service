@@ -6,8 +6,8 @@ After=local-ai-llama.service local-ai-docling.service
 
 [Service]
 Type=simple
-EnvironmentFile=@LOCAL_AI_ROOT@/run/local-ai.env
-ExecStart=@LOCAL_AI_ROOT@/scripts/service-command.sh docling-gate
-ExecStartPost=@LOCAL_AI_ROOT@/scripts/health-check.sh docling-gate
+EnvironmentFile=@LOCAL_AI_ROOT_SYSTEMD@/run/local-ai.env
+ExecStart="@LOCAL_AI_ROOT@/scripts/service-command.sh" docling-gate
+ExecStartPost="@LOCAL_AI_ROOT@/scripts/health-check.sh" docling-gate
 Restart=on-failure
 RestartSec=5

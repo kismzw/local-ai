@@ -6,9 +6,21 @@ command=${1:-prepare}
 rendered="$root_dir/run/systemd-units"
 prepare() {
   python3 scripts/config-check.py --write-systemd-env
+  session_vars=()
+  for name in SSH_AUTH_SOCK DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS; do
+    [[ -n ${!name:-} ]] && session_vars+=("$name")
+  done
+  if ((${#session_vars[@]})); then systemctl --user import-environment "${session_vars[@]}"; fi
   mkdir -p "$rendered"
+  escaped_root=${root_dir//\\/\\\\}
+  escaped_root=${escaped_root//&/\\&}
+  escaped_root=${escaped_root//|/\\|}
+  systemd_root=${root_dir// /\\x20}
+  escaped_systemd_root=${systemd_root//\\/\\\\}
+  escaped_systemd_root=${escaped_systemd_root//&/\\&}
+  escaped_systemd_root=${escaped_systemd_root//|/\\|}
   for unit in systemd/user/*; do
-    sed "s|@LOCAL_AI_ROOT@|$root_dir|g" "$unit" > "$rendered/$(basename "$unit")"
+    sed -e "s|@LOCAL_AI_ROOT_SYSTEMD@|$escaped_systemd_root|g" -e "s|@LOCAL_AI_ROOT@|$escaped_root|g" "$unit" > "$rendered/$(basename "$unit")"
     systemctl --user link "$rendered/$(basename "$unit")" >/dev/null
   done
   systemctl --user daemon-reload

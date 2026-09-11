@@ -189,14 +189,21 @@ async def run_tool(payload: RunRequest, credentials: HTTPAuthorizationCredential
         command.extend([image, "/bin/sh", "-lc", payload.command])
         if payload.mode == "write":
             ensure_audit_writable()
-        async with WORKSPACE_LOCK:
+        deadline = asyncio.get_running_loop().time() + payload.timeout_seconds
+        await asyncio.wait_for(WORKSPACE_LOCK.acquire(), timeout=max(0.001, deadline - asyncio.get_running_loop().time()))
+        try:
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                raise __import__("subprocess").TimeoutExpired(payload.command, payload.timeout_seconds)
             result = await asyncio.to_thread(
                 __import__("subprocess").run, command, text=True, capture_output=True,
-                timeout=payload.timeout_seconds, check=False,
+                timeout=remaining, check=False,
             )
+        finally:
+            WORKSPACE_LOCK.release()
         stdout, stderr = limit_output(result.stdout, result.stderr)
         response = {"exit_code": result.returncode, "stdout": stdout, "stderr": stderr}
-    except __import__("subprocess").TimeoutExpired:
+    except (__import__("subprocess").TimeoutExpired, asyncio.TimeoutError):
         response = {"exit_code": 124, "stdout": "", "stderr": f"timed out after {payload.timeout_seconds} seconds"}
     except (OSError, RuntimeError) as error:
         failure = str(error)

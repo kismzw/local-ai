@@ -11,6 +11,7 @@ case "$service" in
  docling-gate) url="http://127.0.0.1:${DOCLING_GATE_PORT}/health/ready" ;;
  searxng) url="http://127.0.0.1:${SEARXNG_PORT}/healthz" ;;
  tool-bridge) [[ $TOOL_BRIDGE_ENABLED == true ]] || exit 0; url="http://${TOOL_BRIDGE_BIND}:${TOOL_BRIDGE_PORT}/health/ready" ;;
+ host-bridge) [[ $HOST_TOOL_ENABLED == true ]] || exit 0; url="http://${HOST_TOOL_BIND}:${HOST_TOOL_PORT}/health/ready" ;;
  open-webui) url="http://${OPEN_WEBUI_BIND}:${OPEN_WEBUI_PORT}/health" ;;
  *) exit 2 ;;
 esac

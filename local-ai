@@ -123,7 +123,7 @@ case ${1:-} in
   close) stop_browser; ./scripts/stop.sh ;;
   status)
     if browser_running; then printf 'Firefox: running\n'; else printf 'Firefox: stopped\n'; fi
-    for service in open-webui tool-bridge docling-gate docling embedding llama searxng; do
+    for service in open-webui host-bridge tool-bridge docling-gate docling embedding llama searxng; do
       if systemctl --user is-active --quiet "local-ai-${service}.service"; then printf '%s: running\n' "$service"; else printf '%s: stopped\n' "$service"; fi
     done
     ;;

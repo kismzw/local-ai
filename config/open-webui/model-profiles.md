@@ -10,6 +10,7 @@ presets, so changing the inference backend later does not require UI redesign.
 | Qwen Think | `[chat].alias` | temperature `0.5`, max tokens `4096` | Web Search on; RAG optional, sandbox off | "Reason carefully. State assumptions, search current claims when useful, and cite sources." |
 | Qwen Research | `[chat].alias` | temperature `0.3`, max tokens `4096` | Web Search and RAG on; sandbox only when requested | "Use attached, retrieved, and web sources as evidence. Clearly distinguish each from general knowledge and cite web sources." |
 | Qwen Codex | `[chat].alias` | temperature `0.2`, max tokens `8192` | Qwen Codex Workspace tool on; web search/RAG off by default | See the required coding-agent prompt below. |
+| Local Admin | `[chat].alias` | temperature `0.2`, max tokens `8192` | Full Desktop Shell on; web search/RAG off | Treat every command as owner-level system access. |
 
 Keep **Function Calling: Native** for every profile: Open WebUI's built-in web
 tools need it even when workspace tools are otherwise disabled. Tool access
@@ -21,6 +22,11 @@ For Qwen Fast, Think, and Research, enable the **Web Search** capability and add
 it under **Default Features**. Keep web search and RAG off for Qwen Codex unless
 the task specifically needs them. Saved Admin settings override environment
 defaults; see `config/open-webui/web-search.md` after first login.
+
+Keep Web Search and RAG off for **Local Admin** by default. The Full Desktop
+Shell has the same authority as the Linux user, including any available SSH
+agent credentials; it is intentionally separate from the contained workspace
+tools.
 
 ## Qwen Codex setup
 

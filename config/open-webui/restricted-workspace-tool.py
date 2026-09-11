@@ -27,7 +27,7 @@ class Tools:
             return f"Workspace sandbox rejected the request ({error.code}): {error.read().decode('utf-8', 'replace')}"
         except URLError as error:
             return f"Workspace sandbox is unavailable: {error.reason}"
-        return json.dumps({"exit_code": result.get("exit_code"), "stdout": result.get("stdout", ""), "stderr": result.get("stderr", "")}, ensure_ascii=False)
+        return json.dumps(result, ensure_ascii=False)
 
     def run_in_restricted_workspace(self, command: str, timeout_seconds: int = 60) -> str:
         """Run a targeted read-only command in /workspace or optional /data."""

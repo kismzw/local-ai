@@ -56,6 +56,9 @@ managed with
 - Close that Firefox window and stop all Local AI services: `./local-ai close`
 - Install/enable the login-time systemd user target: `./local-ai install`
 - Install GNOME app-menu/Desktop launchers: `./local-ai install-launcher`
+- Optional owner-level shell tool: set `HOST_TOOL_ENABLED=true`, run
+  `./scripts/start-host-bridge.sh`, then add the generated **Full Desktop
+  Shell** adapter. It is not sandboxed; see `config/open-webui/tool-bridge.md`.
 - If Firefox is not auto-detected, set its executable path as `FIREFOX_BIN` in `.env`.
 - Preflight/live diagnostics: `./scripts/doctor.sh`
 - Smoke test: `./tests/smoke.sh`

@@ -40,6 +40,6 @@ jobs:
           uv sync --project open-webui-runtime --locked
           uv run --project docling-gate --locked python -m compileall docling-gate scripts
           uv run --project docling-gate --locked pytest tests/python
-          uv run --project docling-gate --locked ruff check docling-gate tool-bridge scripts tests/python
+          uv run --project docling-gate --locked ruff check docling-gate tool-bridge host-bridge scripts tests/python
       - name: Shell checks
         run: shellcheck -x -P SCRIPTDIR local-ai scripts/*.sh tests/*.sh

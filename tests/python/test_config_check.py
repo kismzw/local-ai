@@ -51,6 +51,13 @@ def test_enabled_tool_requires_its_settings(tmp_path):
         config_check.validate(values)
 
 
+def test_enabled_host_tool_requires_its_separate_credentials(tmp_path):
+    values = valid_values(tmp_path)
+    values["HOST_TOOL_ENABLED"] = "true"
+    with pytest.raises(config_check.ConfigError, match="HOST_TOOL_API_KEY"):
+        config_check.validate(values)
+
+
 def test_rag_alias_is_generated_from_models_toml(tmp_path):
     values = config_check.validate(valid_values(tmp_path))
     assert values["RAG_EMBEDDING_MODEL"] == values["EMBEDDING_MODEL_ALIAS"]

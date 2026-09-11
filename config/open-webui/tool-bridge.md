@@ -22,6 +22,21 @@ the credential.
 The bridge itself still exposes `http://127.0.0.1:8090/openapi.json` for a
 future Open WebUI release with stable OpenAPI tool-server support.
 
+## Full Desktop Shell
+
+`HOST_TOOL_ENABLED=false` is the safe default. Setting it to `true` starts a
+separate loopback-only service on port 8091. Create the **Full Desktop Shell**
+native tool from `config/open-webui/full-desktop-shell-tool.py` and enable it
+only for a dedicated Local Admin model profile. It runs arbitrary commands as
+the owner Linux user: it can read, modify, or delete any user-accessible file,
+start processes, access the network, and use available SSH credentials. It is
+not sandboxed and has no read-only mode. It has a distinct API key and records
+every invocation in `data/host-tool-audit/host-bridge.jsonl`.
+
+Do not enable Full Desktop Shell together with the web-research profile by
+default: malicious web content can influence a model that can access local
+credentials and remote hosts.
+
 Use the restricted adapter for read-only inspection. The Qwen Codex write tool
 needs `TOOL_WRITE_MODE=read_write`; every invocation is recorded in
 `data/tool-audit/tool-bridge.jsonl`. Its commands are unrestricted inside the

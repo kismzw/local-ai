@@ -20,7 +20,7 @@ KEY = re.compile(r"^[A-Z][A-Z0-9_]*$")
 BOOLS = {"true", "false"}
 PORTS = (
     "OPEN_WEBUI_PORT", "LLAMA_SERVER_PORT", "EMBEDDING_SERVER_PORT",
-    "TOOL_BRIDGE_PORT", "SEARXNG_PORT", "DOCLING_GATE_PORT", "DOCLING_PORT",
+    "TOOL_BRIDGE_PORT", "HOST_TOOL_PORT", "SEARXNG_PORT", "DOCLING_GATE_PORT", "DOCLING_PORT",
 )
 POSITIVE = (
     "DOCLING_GATE_POLL_SECONDS", "DOCLING_GATE_MAX_WAIT_SECONDS",
@@ -29,7 +29,7 @@ POSITIVE = (
     "LOG_ROTATION_COUNT", "MODEL_CONTEXT_SIZE", "MODEL_PARALLELISM", "MODEL_THREADS",
     "MODEL_BATCH_SIZE", "MODEL_UBATCH_SIZE", "RAG_CHUNK_SIZE", "WEB_SEARCH_RESULT_COUNT",
     "WEB_SEARCH_CONCURRENT_REQUESTS", "WEB_LOADER_CONCURRENT_REQUESTS",
-    "WEB_LOADER_TIMEOUT_SECONDS", "WEB_FETCH_MAX_CONTENT_LENGTH",
+    "WEB_LOADER_TIMEOUT_SECONDS", "WEB_FETCH_MAX_CONTENT_LENGTH", "HOST_TOOL_MAX_OUTPUT_CHARS", "HOST_TOOL_MAX_TIMEOUT_SECONDS",
 )
 REQUIRED = (
     "LLAMA_IMAGE", "SEARXNG_IMAGE", "DOCLING_IMAGE", "OPEN_WEBUI_VERSION", "OPEN_WEBUI_BIND",
@@ -46,7 +46,7 @@ REQUIRED = (
 )
 PATHS = (
     "LLAMA_IMAGE", "TOOL_IMAGE", "SEARXNG_IMAGE", "DOCLING_IMAGE", "MODEL_DIR",
-    "OPEN_WEBUI_DATA_DIR", "TOOL_AUDIT_DIR", "SEARXNG_CACHE_DIR", "DOCLING_ARTIFACTS_DIR",
+    "OPEN_WEBUI_DATA_DIR", "TOOL_AUDIT_DIR", "HOST_TOOL_AUDIT_DIR", "HOST_TOOL_CWD", "SEARXNG_CACHE_DIR", "DOCLING_ARTIFACTS_DIR",
     "DOCLING_AUDIT_DIR", "WORKSPACE_DIR", "TOOL_DATA_DIR",
 )
 
@@ -146,17 +146,18 @@ def validate(values: dict[str, str]) -> dict[str, str]:
         "TOOL_BRIDGE_ENABLED": "false", "TOOL_DATA_DIR": "", "TOOL_HIDDEN_PATHS": "",
         "DOCLING_GATE_IDLE_SECONDS": "10", "DOCLING_GATE_MAX_UNKNOWN_POLLS": "3",
         "LOG_MAX_BYTES": "10485760", "LOG_ROTATION_COUNT": "5", "APPTAINER_BIN": "",
-        "TOOL_MAX_OUTPUT_CHARS": "6000",
+        "TOOL_MAX_OUTPUT_CHARS": "6000", "HOST_TOOL_ENABLED": "false", "HOST_TOOL_BIND": "127.0.0.1",
+        "HOST_TOOL_PORT": "8091", "HOST_TOOL_MAX_OUTPUT_CHARS": "12000", "HOST_TOOL_MAX_TIMEOUT_SECONDS": "300",
     }
     for key, value in defaults.items():
         values.setdefault(key, value)
     missing = [name for name in REQUIRED if not values.get(name)]
     if missing:
         raise ConfigError("Missing required setting(s): " + ", ".join(missing))
-    for name in ("TOOL_BRIDGE_ENABLED", "WEB_SEARCH_ENABLED"):
+    for name in ("TOOL_BRIDGE_ENABLED", "HOST_TOOL_ENABLED", "WEB_SEARCH_ENABLED"):
         if values.get(name, "") not in BOOLS:
             raise ConfigError(f"{name} must be true or false")
-    for name in ("OPEN_WEBUI_BIND", "LLAMA_SERVER_BIND", "TOOL_BRIDGE_BIND"):
+    for name in ("OPEN_WEBUI_BIND", "LLAMA_SERVER_BIND", "TOOL_BRIDGE_BIND", "HOST_TOOL_BIND"):
         if values[name] not in {"127.0.0.1", "localhost"}:
             raise ConfigError(f"{name} must be a loopback address")
     seen: set[int] = set()
@@ -169,6 +170,8 @@ def validate(values: dict[str, str]) -> dict[str, str]:
     for name in POSITIVE:
         if name in values:
             integer(values, name)
+    if int(values["HOST_TOOL_MAX_TIMEOUT_SECONDS"]) > 3600:
+        raise ConfigError("HOST_TOOL_MAX_TIMEOUT_SECONDS must be <= 3600")
     integer(values, "DOCLING_GATE_IDLE_SECONDS", minimum=0)
     integer(values, "RAG_CHUNK_OVERLAP", minimum=0)
     if int(values["RAG_CHUNK_OVERLAP"]) >= int(values["RAG_CHUNK_SIZE"]):
@@ -188,6 +191,12 @@ def validate(values: dict[str, str]) -> dict[str, str]:
             raise ConfigError("TOOL_WRITE_MODE must be read_only or read_write")
         if values["TOOL_NETWORK_MODE"] not in {"isolated", "unverified"}:
             raise ConfigError("TOOL_NETWORK_MODE must be isolated or unverified")
+    if values["HOST_TOOL_ENABLED"] == "true":
+        for name in ("HOST_TOOL_API_KEY", "HOST_TOOL_AUDIT_DIR", "HOST_TOOL_CWD", "HOST_TOOL_SHELL", "HOST_TOOL_MAX_OUTPUT_CHARS", "HOST_TOOL_MAX_TIMEOUT_SECONDS"):
+            if not values.get(name):
+                raise ConfigError(f"{name} is required when HOST_TOOL_ENABLED=true")
+        if not Path(values["HOST_TOOL_SHELL"]).is_file() or not os.access(values["HOST_TOOL_SHELL"], os.X_OK):
+            raise ConfigError("HOST_TOOL_SHELL must be an executable file")
     for name in PATHS:
         if values.get(name):
             values[name] = resolve(values[name])
@@ -195,6 +204,8 @@ def validate(values: dict[str, str]) -> dict[str, str]:
         raise ConfigError("TOOL_DATA_DIR must name an existing directory")
     if values["TOOL_BRIDGE_ENABLED"] == "true" and not Path(values["WORKSPACE_DIR"]).is_dir() and Path(values["WORKSPACE_DIR"]).exists():
         raise ConfigError("WORKSPACE_DIR must be a directory")
+    if values["HOST_TOOL_ENABLED"] == "true" and not Path(values["HOST_TOOL_CWD"]).is_dir():
+        raise ConfigError("HOST_TOOL_CWD must be an existing directory")
     models = load_models()
     if values["OPEN_WEBUI_VERSION"] != open_webui_version():
         raise ConfigError("OPEN_WEBUI_VERSION must match open-webui-runtime/pyproject.toml")
