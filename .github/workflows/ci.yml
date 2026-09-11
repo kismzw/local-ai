@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  cpu-only:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v5
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Validate configuration and locks
+        run: |
+          cp .env.example .env
+          python3 scripts/config-check.py
+          python3 scripts/render-open-webui-adapters.py --check
+          ./tests/docs-config.sh
+          python3 -c 'import tomllib; tomllib.load(open("config/models.toml", "rb")); tomllib.load(open("config/apptainer/images.lock", "rb"))'
+          ! rg -n '(^|[^A-Z_])apptainer exec' scripts tests || false
+      - name: Python checks
+        run: |
+          uv sync --project docling-gate --locked --group dev
+          uv sync --project tool-bridge --locked --group dev
+          uv run --project docling-gate --locked python -m compileall docling-gate scripts
+          uv run --project docling-gate --locked pytest tests/python
+          uv run --project docling-gate --locked ruff check docling-gate tool-bridge scripts tests/python
+      - name: Shell checks
+        run: shellcheck local-ai scripts/*.sh tests/*.sh

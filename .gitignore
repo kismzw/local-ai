@@ -17,5 +17,9 @@ models/*.gguf
 models/*.mmproj
 models/*.sha256
 run/*.pid
+run/local-ai.env
+run/systemd-units/
 logs/*.log
 benchmarks/results/
+!benchmarks/reference/
+!benchmarks/reference/*.md

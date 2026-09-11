@@ -1,0 +1,13 @@
+[Unit]
+Description=Local AI Open WebUI
+PartOf=local-ai.target
+Requires=local-ai-llama.service local-ai-embedding.service local-ai-docling-gate.service local-ai-searxng.service
+After=local-ai-llama.service local-ai-embedding.service local-ai-docling-gate.service local-ai-searxng.service
+
+[Service]
+Type=simple
+EnvironmentFile=@LOCAL_AI_ROOT@/run/local-ai.env
+ExecStart=@LOCAL_AI_ROOT@/scripts/service-command.sh open-webui
+ExecStartPost=@LOCAL_AI_ROOT@/scripts/health-check.sh open-webui
+Restart=on-failure
+RestartSec=5

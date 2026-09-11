@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$root_dir"
-[[ -f .env ]] || { printf 'Missing .env\n' >&2; exit 1; }
-set -a; source .env; set +a
+source "$(dirname -- "${BASH_SOURCE[0]}")/common.sh"
+load_env
 configured_context_size=$MODEL_CONTEXT_SIZE
 context_size=${1:-$configured_context_size}
 [[ "$context_size" =~ ^(32768|65536)$ ]] || { printf 'Usage: %s [32768|65536]\n' "$0" >&2; exit 2; }
 restore_configured_context() {
+  systemctl --user unset-environment MODEL_CONTEXT_SIZE_OVERRIDE || true
   if [[ "$context_size" != "$configured_context_size" ]]; then
     printf 'Restoring configured %s-token context...\n' "$configured_context_size" >&2
     ./scripts/stop.sh || true
@@ -20,7 +19,8 @@ output="benchmarks/results/$(date +%Y%m%d-%H%M%S)-${context_size}.md"
 api="http://${LLAMA_SERVER_BIND}:${LLAMA_SERVER_PORT}"
 if [[ "$context_size" != "$configured_context_size" ]]; then
   ./scripts/stop.sh
-  MODEL_CONTEXT_SIZE_OVERRIDE="$context_size" ./scripts/start-llama.sh
+  systemctl --user set-environment MODEL_CONTEXT_SIZE_OVERRIDE="$context_size"
+  ./scripts/start-llama.sh
 fi
 for attempt in $(seq 1 60); do
   if curl -fsS "$api/health" >/dev/null 2>&1; then break; fi

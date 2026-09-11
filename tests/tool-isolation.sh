@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$root_dir"
-set -a; source .env; set +a
+source "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/common.sh"
+load_env
 workspace=$(realpath -m "$WORKSPACE_DIR")
 image=$(realpath -m "$TOOL_IMAGE")
 real_user_home=$(realpath -m "$HOME")

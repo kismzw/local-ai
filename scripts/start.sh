@@ -2,12 +2,20 @@
 set -Eeuo pipefail
 root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
+source scripts/common.sh
+load_env
 ./scripts/doctor.sh --preflight
-./scripts/start-searxng.sh
-./scripts/start-docling.sh
-./scripts/start-docling-gate.sh
-./scripts/start-llama.sh
-./scripts/start-embedding.sh
-if grep -q '^TOOL_BRIDGE_ENABLED=true$' .env; then ./scripts/start-tool-bridge.sh; fi
-./scripts/start-open-webui.sh
-printf 'Open WebUI: http://127.0.0.1:%s\n' "$(awk -F= '/^OPEN_WEBUI_PORT=/{print $2}' .env)"
+./scripts/systemd.sh prepare
+started=()
+rollback() { local status=$?; if ((status)); then for service in "${started[@]}"; do systemctl --user stop "local-ai-${service}.service" || true; done; fi; exit "$status"; }
+trap rollback EXIT
+for service in searxng docling llama embedding docling-gate tool-bridge open-webui; do
+  [[ $service != tool-bridge || $TOOL_BRIDGE_ENABLED == true ]] || continue
+  unit="local-ai-${service}.service"
+  if ! systemctl --user is-active --quiet "$unit"; then started=("$service" "${started[@]}"); systemctl --user start "$unit"; fi
+  case "$service" in llama) health=llama-server ;; embedding) health=embedding-server ;; *) health=$service ;; esac
+  ./scripts/health-check.sh "$health"
+done
+systemctl --user start local-ai.target
+trap - EXIT
+printf 'Open WebUI: http://%s:%s\n' "$OPEN_WEBUI_BIND" "$OPEN_WEBUI_PORT"

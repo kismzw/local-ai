@@ -6,3 +6,6 @@ dependencies = ["fastapi==0.121.3", "uvicorn==0.38.0"]
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = ["pytest==8.3.5", "ruff==0.11.0"]

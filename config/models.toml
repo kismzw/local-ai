@@ -1,0 +1,15 @@
+# Model identity is versioned here; .env contains only machine-local tuning.
+[chat]
+role = "chat"
+repo = "ggml-org/Qwen3.8-27B-GGUF"
+filename = "Qwen3.8-27B-Q4_K_M.gguf"
+sha256 = "31629f53165ab6a7dad8c9847dcfd1fdf55829dac1e6e748f4a68581b0033d34"
+alias = "qwen3.8-27b"
+
+[embedding]
+role = "embedding"
+repo = "Qwen/Qwen3-Embedding-0.6B-GGUF"
+filename = "Qwen3-Embedding-0.6B-Q8_0.gguf"
+# The release maintainer must set this before a model download is accepted.
+sha256 = "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439"
+alias = "qwen3-embedding-0.6b"

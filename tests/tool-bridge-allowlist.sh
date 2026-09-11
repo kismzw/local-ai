@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$root_dir"
-set -a; source .env; set +a
+source "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/common.sh"
+load_env
 
 [[ ${TOOL_BRIDGE_ENABLED:-false} == true ]] || { printf 'Tool bridge is disabled; allowlist test skipped.\n'; exit 0; }
-[[ -n ${TOOL_DATA_DIR:-} ]] || { printf 'TOOL_DATA_DIR is required for the allowlist test.\n' >&2; exit 1; }
-
-command='test -d /workspace && test -d /data && grep -Eq "^[^ ]+ /data [^ ]+ ro[, ]" /proc/mounts'
 workspace=$(realpath -m "$WORKSPACE_DIR")
+probe=$(mktemp "$workspace/.local-ai-allowlist.XXXXXX")
+relative_probe=$(realpath --relative-to="$workspace" "$probe")
+cleanup() { rm -f "$probe"; }
+trap cleanup EXIT
+
+command="test -d /workspace && test -f /workspace/${relative_probe} && grep -Eq '^[^ ]+ /workspace [^ ]+ ro[, ]' /proc/mounts && ! touch /workspace/${relative_probe}.write-denied"
+if [[ -n ${TOOL_DATA_DIR:-} ]]; then
+  command+=" && test -d /data && grep -Eq '^[^ ]+ /data [^ ]+ ro[, ]' /proc/mounts && ! touch /data/.local-ai-write-denied"
+fi
 IFS=: read -r -a hidden_paths <<< "${TOOL_HIDDEN_PATHS:-}"
 for hidden_path in "${hidden_paths[@]}"; do
   [[ -n "$hidden_path" ]] || continue
@@ -22,4 +27,4 @@ response=$(curl -fsS --max-time 35 \
   --data "$payload" \
   "http://${TOOL_BRIDGE_BIND}:${TOOL_BRIDGE_PORT}/run")
 python3 -c 'import json, sys; reply=json.load(sys.stdin); assert reply["exit_code"] == 0, reply' <<<"$response"
-printf 'Tool bridge allowlist test passed (/workspace read-only, /data read-only, hidden paths masked).\n'
+printf 'Tool bridge allowlist test passed (/workspace read-only; optional /data read-only; hidden paths masked).\n'

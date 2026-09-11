@@ -24,20 +24,21 @@ cp .env.example .env
 ./scripts/start.sh
 ```
 
-Open http://127.0.0.1:3000 and create the one permitted initial account; it
+Open `http://${OPEN_WEBUI_BIND}:${OPEN_WEBUI_PORT}` using your `.env` values and create the one permitted initial account; it
 becomes the admin. Later signups are disabled. The application runs in offline
 mode after image and model downloads complete.
 `./scripts/stop.sh`, `./scripts/logs.sh`, and `./scripts/update.sh` manage the
-stack. Open WebUI is version-pinned in `.env`; model identity is checksum
-verified. The running Apptainer root filesystems are immutable SIFs. Review the
-official llama.cpp OCI source before deliberately refreshing its SIF with
-`./scripts/update.sh`.
+stack. `setup.sh` enables a user systemd target so the stack starts at login;
+it does not enable lingering after logout. Model identity is checksum verified
+in `config/models.toml`, and normal updates refresh only digest-locked SIFs.
+Use `scripts/update-lock.py` only after deliberately selecting and validating a
+new upstream digest.
 
 ## Everyday use
 
 Create the Fast, Think, Research, and Codex presets once using
-`config/open-webui/model-profiles.md`. Qwen Codex is enabled for the configured
-workspace and follows a plan-then-approval workflow before it edits files; it
+`config/open-webui/model-profiles.md`. Enable Qwen Codex only after configuring
+the workspace and write mode; it follows a plan-then-approval workflow before it edits files; it
 can test and commit successful work in that workspace. Review its
 [containment and command policy](config/open-webui/tool-bridge.md). Upload
 documents into a Knowledge collection for RAG. Explicit long-term memory is
@@ -48,6 +49,7 @@ managed with
 
 - Open Local AI and its dedicated Firefox window: `./local-ai open`
 - Close that Firefox window and stop all Local AI services: `./local-ai close`
+- Install/enable the login-time systemd user target: `./local-ai install`
 - Install GNOME app-menu/Desktop launchers: `./local-ai install-launcher`
 - If Firefox is not auto-detected, set its executable path as `FIREFOX_BIN` in `.env`.
 - Preflight/live diagnostics: `./scripts/doctor.sh`

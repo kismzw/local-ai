@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$root_dir"
-set -a; source .env; set +a
+source "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/common.sh"
+load_env
 api="http://${LLAMA_SERVER_BIND}:${LLAMA_SERVER_PORT}"
 printf '1. Model discovery\n'
 curl -fsS -H "Authorization: Bearer ${LLAMA_API_KEY}" "$api/v1/models" | grep -q qwen3.8-27b
@@ -14,7 +13,7 @@ trap 'rm -f "$stream_file"' EXIT
 curl -fsSN -H "Authorization: Bearer ${LLAMA_API_KEY}" -H 'Content-Type: application/json' -d '{"model":"qwen3.8-27b","messages":[{"role":"user","content":"Reply only with OK."}],"chat_template_kwargs":{"enable_thinking":false},"max_tokens":8,"stream":true,"temperature":0}' "$api/v1/chat/completions" > "$stream_file"
 grep -q 'data:' "$stream_file"
 printf '4. GPU is visible to inference\n'
-apptainer exec --nv "$LLAMA_IMAGE" nvidia-smi >/dev/null
+"$APPTAINER_BIN" exec --nv "$LLAMA_IMAGE" nvidia-smi >/dev/null
 printf '5. Open WebUI health\n'
 curl -fsS "http://${OPEN_WEBUI_BIND}:${OPEN_WEBUI_PORT}/health" >/dev/null
 printf '6. Embeddings endpoint\n'

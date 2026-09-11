@@ -2,9 +2,10 @@
 
 `tool-sandbox.sif` is a separate immutable Apptainer image with Python, Git,
 and bash. Its execution contract is `--cleanenv --containall --no-home
---writable-tmpfs`, plus exactly one configured host bind:
-`WORKSPACE_DIR:/workspace:rw`. Its temporary root filesystem can be modified
-inside the process but no modifications reach the host except under `/workspace`.
+--writable-tmpfs`, plus an explicit `/workspace` bind and optional `/data:ro`
+bind. Read calls mount `/workspace:ro`; write calls mount it `:rw` only when
+enabled. Its temporary root filesystem can be modified inside the process but
+no modifications reach the host except under a permitted writable workspace.
 
 The Qwen Codex adapter can run unrestricted commands inside `/workspace` when
 the owner sets `TOOL_WRITE_MODE=read_write`; this includes destructive workspace

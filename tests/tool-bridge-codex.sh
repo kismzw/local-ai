@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$root_dir"
-set -a; source .env; set +a
+source "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/common.sh"
+load_env
 
 [[ ${TOOL_BRIDGE_ENABLED:-false} == true ]] || { printf 'Tool bridge is disabled; Codex bridge test skipped.\n'; exit 0; }
 [[ ${TOOL_WRITE_MODE:-read_only} == read_write ]] || { printf 'TOOL_WRITE_MODE=read_write is required.\n' >&2; exit 1; }

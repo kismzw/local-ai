@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # Exercise the pinned Open WebUI URL validator without touching live UI data.
 set -Eeuo pipefail
-root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$root_dir"
-set -a; source .env; set +a
+source "$(dirname -- "${BASH_SOURCE[0]}")/../scripts/common.sh"
+load_env
 
-[[ -f run/open-webui.pid ]] || { printf 'Open WebUI is not running.\n' >&2; exit 1; }
-launcher_pid=$(<run/open-webui.pid)
+systemctl --user is-active --quiet local-ai-open-webui.service || { printf 'Open WebUI is not running.\n' >&2; exit 1; }
+launcher_pid=$(systemctl --user show --value --property=MainPID local-ai-open-webui.service)
 python_pid=$(pgrep -P "$launcher_pid" | head -n1 || true)
 [[ -n "$python_pid" ]] || { printf 'Could not find Open WebUI Python child.\n' >&2; exit 1; }
 # Use argv[0], not /proc/.../exe: the latter resolves the venv interpreter

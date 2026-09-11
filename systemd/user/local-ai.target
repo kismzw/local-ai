@@ -1,0 +1,6 @@
+[Unit]
+Description=Local AI stack
+Wants=local-ai-searxng.service local-ai-docling.service local-ai-llama.service local-ai-embedding.service local-ai-docling-gate.service local-ai-tool-bridge.service local-ai-open-webui.service
+
+[Install]
+WantedBy=default.target

@@ -1,7 +1,7 @@
 # Architecture
 
 ```text
-Browser (127.0.0.1:3000)
+Browser (${OPEN_WEBUI_BIND}:${OPEN_WEBUI_PORT})
   -> Open WebUI native user-space process (persistent conversations, RAG)
        -> localhost llama.cpp /v1 in Apptainer --nv (Qwen3.8-27B Q4_K_M)
        -> localhost llama.cpp embeddings in Apptainer --nv (Qwen3 Embedding)
@@ -28,6 +28,6 @@ Web search is a separate, deliberate egress path: SearXNG queries public search
 engines and Open WebUI fetches selected public pages. Both listeners remain on
 loopback. The Python/Git/shell tool SIF remains on `--net --network none` and
 never performs search or page fetching. Docling shares the GPU with inference
-through a best-effort single-job gate; it checks llama.cpp's authenticated
-`/slots` state (with metrics fallback) for idle inference but does not provide
-strict GPU mutual exclusion.
+through a fail-safe single-job gate; it checks llama.cpp's authenticated
+`/slots` state (with metrics fallback) and rejects work when availability cannot
+be verified. This still does not provide strict GPU mutual exclusion.

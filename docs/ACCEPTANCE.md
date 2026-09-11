@@ -9,14 +9,14 @@ claim a checked item until the listed live test has run on this host.
 | --- | --- |
 | Apptainer GPU passthrough | Passed with Apptainer 1.3.4: CUDA 12.8 OCI probe and official llama.cpp SIF both see RTX 5090. |
 | Inference API | Passed: localhost `/health`, `/v1/models`, chat completion, SSE stream, and `/metrics`. |
-| 32k benchmark | 22.2 GiB VRAM with embedding service; TTFT 1.14 s; generation 65.7 tok/s; 23k-token prefill 3,322 tok/s / 7.33 s TTFT. [Result](../benchmarks/results/20260821-180158-32768.md) |
-| 64k benchmark | Passed at 45.9k-token long prompt: 21.1 GiB VRAM without embedding server; TTFT 1.05 s; generation 65.2 tok/s; long prefill 2,905 tok/s / 16.20 s TTFT. [Result](../benchmarks/results/20260821-180229-65536.md) |
+| 32k benchmark | 22.2 GiB VRAM with embedding service; TTFT 1.14 s; generation 65.7 tok/s; 23k-token prefill 3,322 tok/s / 7.33 s TTFT. [Reference](../benchmarks/reference/20260821-180158-32768.md) |
+| 64k benchmark | Passed at 45.9k-token long prompt: 21.1 GiB VRAM without embedding server; TTFT 1.05 s; generation 65.2 tok/s; long prefill 2,905 tok/s / 16.20 s TTFT. [Reference](../benchmarks/reference/20260821-180229-65536.md) |
 | Native Open WebUI | Passed: user-space Python 3.11 service answered `GET /health` on 127.0.0.1:3000. |
 | Embeddings | Passed: Qwen3 Embedding `/v1/embeddings` returned a vector. |
 | SearXNG | Passed: official Apptainer SIF binds to 127.0.0.1:8082 and returned JSON search results. |
 | Web-fetch SSRF policy | Passed against the pinned Open WebUI validator: localhost, RFC1918, IPv6-private, and metadata targets were rejected; redirect following is disabled. |
 | Docling service | Passed: official CUDA SIF sees the GPU, initializes local artifacts, a gated upload using Open WebUI's `X-Api-Key` returned extracted text, and the gate detected an active llama.cpp slot. |
-| Tool filesystem isolation | Passed: Python/Git and workspace write work; real home, SSH paths, Docker socket and host paths outside the bind are absent. Explicit `/data` is read-only and configured secret paths are masked. |
+| Tool filesystem isolation | Re-run required after the corrected allowlist test: it now proves `/workspace:ro` and optional `/data:ro` with failed writes, plus masking and positive adjacent-file visibility. |
 | Tool network behavior | Passed: unprivileged `--net --network none` blocked DNS/egress. `TOOL_NETWORK_MODE=isolated` is set for this host. |
 | Codex tool bridge | Passed: authenticated contained write commands created separate Git commits, an identity-free commit failed, and command output was capped and audited. |
 
@@ -24,6 +24,15 @@ Not yet browser-verified: initial-admin login, model-profile creation, chat
 survival across a restart, PDF Knowledge collection grounding, and OpenAPI-tool
 import. Web Search capability/default-feature persistence and a Docling-backed
 Knowledge upload also require the owner to complete first login in the browser.
+
+## Recorded live evidence — 2026-09-11
+
+`systemd --user` units were linked and `local-ai.target` was enabled for login.
+The dependency-aware startup transaction reached all readiness endpoints, then
+`tests/smoke.sh` passed: inference, embeddings, GPU visibility, tool isolation,
+corrected read-only workspace/data allowlist checks, Codex bridge workflow,
+SearXNG, web-fetch policy, and Docling gate. Browser-owned acceptance remains
+outside this automated evidence.
 
 | Requirement | Implementation evidence | Required live evidence |
 | --- | --- | --- |

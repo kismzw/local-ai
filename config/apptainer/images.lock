@@ -1,16 +1,16 @@
-# Recorded after `scripts/pull-images.sh` on 2026-08-26.  OCI tags are mutable;
-# source revision and SIF SHA-256 identify the exact local root filesystem.
+# Immutable OCI sources and the exact accepted local SIF artifacts.
+[llama]
+source = "docker://ghcr.io/ggml-org/llama.cpp@sha256:5ebb7a55e3d38e5fe185346fcd908033e69c035ad49b33df0066eb7cf4f7b06b"
+sif_sha256 = "543704ddec3e5ef7451f723693c81064bdaa459af4a5ede431026dc4bef9e12a"
+
+[tool]
+source = "docker://python@sha256:528257d48c1da0dcecc2e725d1ae34498d60c965f1241e39cd6a85a8859bdf84"
+sif_sha256 = "10c4205a6dd19bba00494aa02b1a705070e6bf60034f85e9c5653710c4868c2c"
 
 [searxng]
-source=docker://searxng/searxng:latest
-oci_manifest_sha256=467786b0d2523b0de2fc4b690c5629913ba5d80ace7efb8e32288046122f53b7
-upstream_version=2026.8.22-9fea41204
-upstream_revision=9fea41204fdfa7a5cfa15b0ebd12904c520478ce
-sif_sha256=d2896fe94408476bbd6835809e66b6dbcdd7768651843752b78909bcccada6a1
+source = "docker://searxng/searxng@sha256:467786b0d2523b0de2fc4b690c5629913ba5d80ace7efb8e32288046122f53b7"
+sif_sha256 = "d2896fe94408476bbd6835809e66b6dbcdd7768651843752b78909bcccada6a1"
 
 [docling]
-source=docker://quay.io/docling-project/docling-serve-cu128:latest
-oci_manifest_sha256=0ee15dfb92b9b6251706521dc6601e65b22168b14a41c9e3a8543a9bdece3494
-upstream_version=docling-serve-v1.12.0; docling-v2.72.0
-upstream_revision=22012daf2dc254deb685941fc1f1662ca2961f58
-sif_sha256=a88d9ec3d156b61d1c0f284d6bedfdad44b3ecf8dcc380a0e5e9082a6edbe4c6
+source = "docker://quay.io/docling-project/docling-serve-cu128@sha256:0ee15dfb92b9b6251706521dc6601e65b22168b14a41c9e3a8543a9bdece3494"
+sif_sha256 = "a88d9ec3d156b61d1c0f284d6bedfdad44b3ecf8dcc380a0e5e9082a6edbe4c6"

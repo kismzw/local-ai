@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -101,19 +102,44 @@ def bind_hidden_paths(command: list[str], workspace: Path) -> None:
 def audit(event: dict) -> None:
     directory = Path(setting("TOOL_AUDIT_DIR"))
     directory.mkdir(parents=True, exist_ok=True)
-    with (directory / "tool-bridge.jsonl").open("a", encoding="utf-8") as stream:
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from log_rotate import rotate_from_environment
+    target = directory / "tool-bridge.jsonl"
+    rotate_from_environment(target)
+    with target.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(event, ensure_ascii=False) + "\n")
 
 
 def require_key(credentials: HTTPAuthorizationCredentials | None) -> None:
-    expected = f"Bearer {setting('TOOL_SANDBOX_API_KEY')}"
-    if credentials is None or f"{credentials.scheme} {credentials.credentials}" != expected:
+    expected = setting("TOOL_SANDBOX_API_KEY")
+    supplied = credentials.credentials if credentials and credentials.scheme.lower() == "bearer" else ""
+    if not secrets.compare_digest(supplied, expected):
         raise HTTPException(status_code=401, detail="invalid tool bridge API key")
 
 
 @APP.get("/health")
+@APP.get("/health/live")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@APP.get("/health/ready")
+async def ready() -> dict[str, str]:
+    try:
+        runtime = Path(setting("APPTAINER_BIN"))
+        if not runtime.is_absolute() and not __import__("shutil").which(str(runtime)):
+            raise RuntimeError("Apptainer runtime is unavailable")
+        if not Path(setting("TOOL_IMAGE")).is_file():
+            raise RuntimeError("tool image is unavailable")
+        if not Path(setting("WORKSPACE_DIR")).is_dir():
+            raise RuntimeError("workspace is unavailable")
+        data_directory = optional_setting("TOOL_DATA_DIR")
+        if data_directory and not Path(data_directory).is_dir():
+            raise RuntimeError("tool data directory is unavailable")
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return {"status": "ready"}
 
 
 @APP.post("/run")
@@ -121,27 +147,31 @@ async def run_tool(payload: RunRequest, credentials: HTTPAuthorizationCredential
     require_key(credentials)
     if payload.mode == "write" and os.environ.get("TOOL_WRITE_MODE") != "read_write":
         raise HTTPException(status_code=403, detail="workspace write mode is disabled")
-
-    workspace_path = Path(setting("WORKSPACE_DIR")).resolve()
-    workspace = str(workspace_path)
-    image = str(Path(setting("TOOL_IMAGE")).resolve())
-    bind_mode = "rw" if payload.mode == "write" else "ro"
-    command = [
-        setting("APPTAINER_BIN"), "exec", "--cleanenv", "--containall", "--no-home",
-        "--writable-tmpfs", "--pwd", "/workspace", "--bind", f"{workspace}:/workspace:{bind_mode}",
-    ]
-    data_directory = optional_setting("TOOL_DATA_DIR")
-    if data_directory:
-        data_path = Path(data_directory).resolve()
-        if not data_path.is_dir():
-            raise RuntimeError(f"TOOL_DATA_DIR is not a directory: {data_path}")
-        command.extend(["--bind", f"{data_path}:/data:ro"])
-    bind_hidden_paths(command, workspace_path)
-    if os.environ.get("TOOL_NETWORK_MODE") == "isolated":
-        command.extend(["--net", "--network", "none"])
-    command.extend([image, "/bin/sh", "-lc", payload.command])
     started = datetime.now(timezone.utc)
+    started_monotonic = asyncio.get_running_loop().time()
+    response: dict = {"exit_code": 125, "stdout": "", "stderr": "internal bridge error"}
+    failure: str | None = None
     try:
+        workspace_path = Path(setting("WORKSPACE_DIR")).resolve()
+        if not workspace_path.is_dir():
+            raise RuntimeError(f"WORKSPACE_DIR is not a directory: {workspace_path}")
+        workspace = str(workspace_path)
+        image = str(Path(setting("TOOL_IMAGE")).resolve())
+        if not Path(image).is_file():
+            raise RuntimeError(f"TOOL_IMAGE is not a file: {image}")
+        bind_mode = "rw" if payload.mode == "write" else "ro"
+        command = [setting("APPTAINER_BIN"), "exec", "--cleanenv", "--containall", "--no-home",
+                   "--writable-tmpfs", "--pwd", "/workspace", "--bind", f"{workspace}:/workspace:{bind_mode}"]
+        data_directory = optional_setting("TOOL_DATA_DIR")
+        if data_directory:
+            data_path = Path(data_directory).resolve()
+            if not data_path.is_dir():
+                raise RuntimeError(f"TOOL_DATA_DIR is not a directory: {data_path}")
+            command.extend(["--bind", f"{data_path}:/data:ro"])
+        bind_hidden_paths(command, workspace_path)
+        if os.environ.get("TOOL_NETWORK_MODE") == "isolated":
+            command.extend(["--net", "--network", "none"])
+        command.extend([image, "/bin/sh", "-lc", payload.command])
         result = await asyncio.to_thread(
             __import__("subprocess").run, command, text=True, capture_output=True,
             timeout=payload.timeout_seconds, check=False,
@@ -150,5 +180,12 @@ async def run_tool(payload: RunRequest, credentials: HTTPAuthorizationCredential
         response = {"exit_code": result.returncode, "stdout": stdout, "stderr": stderr}
     except __import__("subprocess").TimeoutExpired:
         response = {"exit_code": 124, "stdout": "", "stderr": f"timed out after {payload.timeout_seconds} seconds"}
-    audit({"at": started.isoformat(), "mode": payload.mode, "command": payload.command, **response})
+    except (OSError, RuntimeError) as error:
+        failure = str(error)
+        response = {"exit_code": 125, "stdout": "", "stderr": failure}
+    audit({"at": started.isoformat(), "mode": payload.mode, "command": payload.command,
+           "duration_ms": round((asyncio.get_running_loop().time() - started_monotonic) * 1000),
+           "timeout": response["exit_code"] == 124, "failure": failure, **response})
+    if failure:
+        raise HTTPException(status_code=503, detail="tool bridge configuration or runtime failure")
     return response

@@ -5,24 +5,23 @@ app_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 cd "$app_root"
 
 usage() {
-  printf 'Usage: %s {open|close|status|install-launcher}\n' "$0"
+  printf 'Usage: %s {open|close|status|install|install-launcher}\n' "$0"
 }
 
 browser_pidfile='run/firefox.pid'
 
 browser_running() {
-  [[ -f $browser_pidfile ]] && kill -0 "$(<"$browser_pidfile")" 2>/dev/null
-}
-
-service_running() {
-  local pidfile="run/$1.pid"
-  [[ -f $pidfile ]] && kill -0 "$(<"$pidfile")" 2>/dev/null
+  [[ -f $browser_pidfile ]] || return 1
+  local pid start actual
+  read -r pid start < "$browser_pidfile"
+  actual=$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null || true)
+  [[ -n $start && $start == "$actual" ]] && kill -0 "$pid" 2>/dev/null
 }
 
 stop_browser() {
   if browser_running; then
     local pid
-    pid=$(<"$browser_pidfile")
+    read -r pid _ < "$browser_pidfile"
     kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
     for _ in {1..20}; do
       kill -0 "$pid" 2>/dev/null || break
@@ -62,7 +61,8 @@ wait_for_ui() {
 
 open_app() {
   ./scripts/start.sh
-  set -a; source .env; set +a
+  source "$app_root/scripts/common.sh"
+  load_env
   local url="http://${OPEN_WEBUI_BIND}:${OPEN_WEBUI_PORT}"
   wait_for_ui "$url"
   if browser_running; then
@@ -77,7 +77,7 @@ open_app() {
   # A dedicated profile/new instance lets close terminate only Local AI's window.
   nohup setsid "$firefox" --new-instance --profile "$profile_dir" --new-window "$url" \
     >logs/firefox.log 2>&1 &
-  printf '%s\n' "$!" > "$browser_pidfile"
+  printf '%s %s\n' "$!" "$(awk '{print $22}' "/proc/$!/stat" 2>/dev/null || true)" > "$browser_pidfile"
   printf 'Local AI is open at %s.\n' "$url"
 }
 
@@ -120,10 +120,11 @@ case ${1:-} in
   close) stop_browser; ./scripts/stop.sh ;;
   status)
     if browser_running; then printf 'Firefox: running\n'; else printf 'Firefox: stopped\n'; fi
-    for service in open-webui tool-bridge docling-gate docling embedding-server llama-server searxng; do
-      if service_running "$service"; then printf '%s: running\n' "$service"; else printf '%s: stopped\n' "$service"; fi
+    for service in open-webui tool-bridge docling-gate docling embedding llama searxng; do
+      if systemctl --user is-active --quiet "local-ai-${service}.service"; then printf '%s: running\n' "$service"; else printf '%s: stopped\n' "$service"; fi
     done
     ;;
+  install) ./scripts/systemd.sh install ;;
   install-launcher) install_launcher ;;
   *) usage; exit 2 ;;
 esac

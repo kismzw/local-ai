@@ -1,0 +1,11 @@
+[Unit]
+Description=Local AI embedding service
+PartOf=local-ai.target
+
+[Service]
+Type=simple
+EnvironmentFile=@LOCAL_AI_ROOT@/run/local-ai.env
+ExecStart=@LOCAL_AI_ROOT@/scripts/service-command.sh embedding-server
+ExecStartPost=@LOCAL_AI_ROOT@/scripts/health-check.sh embedding-server
+Restart=on-failure
+RestartSec=5

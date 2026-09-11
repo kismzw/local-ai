@@ -46,7 +46,10 @@ ensure_variable DOCLING_GATE_IDLE_SECONDS 10
 ensure_variable DOCLING_GATE_POLL_SECONDS 5
 ensure_variable DOCLING_GATE_MAX_WAIT_SECONDS 600
 ensure_variable DOCLING_GATE_MAX_RETRIES 3
+ensure_variable DOCLING_GATE_MAX_UNKNOWN_POLLS 3
 ensure_variable DOCLING_MAX_SYNC_WAIT_SECONDS 600
+ensure_variable LOG_MAX_BYTES 10485760
+ensure_variable LOG_ROTATION_COUNT 5
 
 make_secret() { openssl rand -hex 32; }
 for secret_name in LLAMA_API_KEY EMBEDDING_API_KEY TOOL_SANDBOX_API_KEY SEARXNG_SECRET DOCLING_GATE_API_KEY WEBUI_SECRET_KEY; do
@@ -62,4 +65,6 @@ chmod 700 data/open-webui data/tool-audit data/searxng data/searxng/cache data/d
 
 printf 'Checking Apptainer GPU passthrough...\n'
 "$runtime_bin" exec --nv docker://nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi >/dev/null
+python3 scripts/config-check.py
+./scripts/systemd.sh install
 printf 'Setup complete. Run ./scripts/pull-images.sh and ./scripts/download-model.sh, then ./scripts/start.sh.\n'

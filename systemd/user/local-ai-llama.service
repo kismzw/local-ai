@@ -1,0 +1,11 @@
+[Unit]
+Description=Local AI llama.cpp chat service
+PartOf=local-ai.target
+
+[Service]
+Type=simple
+EnvironmentFile=@LOCAL_AI_ROOT@/run/local-ai.env
+ExecStart=@LOCAL_AI_ROOT@/scripts/service-command.sh llama-server
+ExecStartPost=@LOCAL_AI_ROOT@/scripts/health-check.sh llama-server
+Restart=on-failure
+RestartSec=5

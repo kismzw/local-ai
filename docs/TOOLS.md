@@ -3,8 +3,8 @@
 The native localhost tool bridge starts a separate immutable Apptainer SIF with
 Python, bash, and git. Open WebUI has a read-only review adapter and **Qwen
 Codex Workspace**, which provides separate inspection and modification tools.
-Add them as described in `config/open-webui/tool-bridge.md`. The Codex adapter
-is enabled by default for the configured workspace.
+Add them as described in `config/open-webui/tool-bridge.md`. The bridge is
+disabled by default and must be explicitly enabled for the configured workspace.
 
 The tool SIF runs with `--cleanenv --containall --no-home --writable-tmpfs`; it
 does not receive GPU, host home, SSH keys, credentials, Docker socket, or host
