@@ -21,17 +21,19 @@ from pathlib import Path
 print(tomllib.loads(Path('config/apptainer/images.lock').read_text())[sys.argv[1]][sys.argv[2]])
 PY
 }
-receipt_check llama "$LLAMA_IMAGE" "$(lock_value llama source)"
-receipt_check searxng "$SEARXNG_IMAGE" "$(lock_value searxng source)"
-receipt_check docling "$DOCLING_IMAGE" "$(lock_value docling source)"
-if [[ $TOOL_BRIDGE_ENABLED == true ]]; then receipt_check tool "$TOOL_IMAGE" "" "$(lock_value tool definition)"; fi
-model_sha() { python3 - "$1" <<'PY'
+if [[ $preflight_only != --preflight ]]; then
+  receipt_check llama "$LLAMA_IMAGE" "$(lock_value llama source)"
+  receipt_check searxng "$SEARXNG_IMAGE" "$(lock_value searxng source)"
+  receipt_check docling "$DOCLING_IMAGE" "$(lock_value docling source)"
+  if [[ $TOOL_BRIDGE_ENABLED == true ]]; then receipt_check tool "$TOOL_IMAGE" "" "$(lock_value tool definition)"; fi
+  model_sha() { python3 - "$1" <<'PY'
 import sys, tomllib
 print(tomllib.load(open("config/models.toml", "rb"))[sys.argv[1]]["sha256"])
 PY
 }
-if printf '%s  %s\n' "$(model_sha chat)" "${MODEL_DIR}/${MODEL_FILE}" | sha256sum --check --status >/dev/null; then printf '[ok] primary model SHA-256 (%s)\n' "$MODEL_FILE"; else printf '[!!] primary model SHA-256 (%s)\n' "$MODEL_FILE" >&2; failed=1; fi
-if printf '%s  %s\n' "$(model_sha embedding)" "${MODEL_DIR}/${EMBEDDING_MODEL_FILE}" | sha256sum --check --status >/dev/null; then printf '[ok] embedding model SHA-256 (%s)\n' "$EMBEDDING_MODEL_FILE"; else printf '[!!] embedding model SHA-256 (%s)\n' "$EMBEDDING_MODEL_FILE" >&2; failed=1; fi
+  if printf '%s  %s\n' "$(model_sha chat)" "${MODEL_DIR}/${MODEL_FILE}" | sha256sum --check --status >/dev/null; then printf '[ok] primary model SHA-256 (%s)\n' "$MODEL_FILE"; else printf '[!!] primary model SHA-256 (%s)\n' "$MODEL_FILE" >&2; failed=1; fi
+  if printf '%s  %s\n' "$(model_sha embedding)" "${MODEL_DIR}/${EMBEDDING_MODEL_FILE}" | sha256sum --check --status >/dev/null; then printf '[ok] embedding model SHA-256 (%s)\n' "$EMBEDDING_MODEL_FILE"; else printf '[!!] embedding model SHA-256 (%s)\n' "$EMBEDDING_MODEL_FILE" >&2; failed=1; fi
+fi
 for item in "open-webui:$OPEN_WEBUI_PORT" "llama:$LLAMA_SERVER_PORT" "embedding:$EMBEDDING_SERVER_PORT" "searxng:$SEARXNG_PORT" "docling-gate:$DOCLING_GATE_PORT" "docling:$DOCLING_PORT"; do
   name=${item%%:*}; port=${item##*:}
   if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN && ! systemctl --user is-active --quiet "local-ai-${name}.service"; then printf '[!!] port %s is occupied by a non-Local-AI listener\n' "$port" >&2; failed=1; else printf '[ok] port %s is available or managed\n' "$port"; fi

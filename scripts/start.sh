@@ -10,8 +10,9 @@ load_env
 started=()
 rollback() { local status=$?; if ((status)); then for service in "${started[@]}"; do systemctl --user stop "local-ai-${service}.service" || true; done; fi; exit "$status"; }
 trap rollback EXIT
-for service in searxng docling llama embedding docling-gate tool-bridge open-webui; do
+for service in searxng docling llama embedding docling-gate tool-bridge host-bridge open-webui; do
   [[ $service != tool-bridge || $TOOL_BRIDGE_ENABLED == true ]] || continue
+  [[ $service != host-bridge || $HOST_TOOL_ENABLED == true ]] || continue
   unit="local-ai-${service}.service"
   if ! systemctl --user is-active --quiet "$unit"; then started=("$service" "${started[@]}"); systemctl --user start "$unit"; fi
   health=$(./scripts/service-health-name.sh "$service")

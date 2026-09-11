@@ -35,6 +35,11 @@ workspace/data allowlist checks, Codex bridge workflow, SearXNG, web-fetch
 policy, and Docling gate. This is host acceptance evidence, not CI evidence;
 browser-owned acceptance remains outside it.
 
+Full Desktop Shell / SSH acceptance remains pending: after a logout/login with
+`HOST_TOOL_ENABLED=true`, verify the host bridge command, `SSH_AUTH_SOCK`,
+`ssh-add -l`, and (where configured) a BatchMode SSH command to an approved
+remote host. This is host acceptance evidence, not CI evidence.
+
 Post-remediation verification on this host also passed: every SIF-backed unit
 was restarted directly through systemd and passed its receipt `ExecStartPre`;
 Docling gate and tool bridge started with locked, no-sync uv environments; and

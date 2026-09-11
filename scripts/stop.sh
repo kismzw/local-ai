@@ -5,5 +5,5 @@ cd "$root_dir"
 if (($#)); then
   for service in "$@"; do systemctl --user stop "local-ai-${service}.service" || true; done
 else
-  systemctl --user stop local-ai.target local-ai-open-webui.service local-ai-tool-bridge.service local-ai-docling-gate.service local-ai-docling.service local-ai-embedding.service local-ai-llama.service local-ai-searxng.service || true
+  systemctl --user stop local-ai.target local-ai-open-webui.service local-ai-host-bridge.service local-ai-tool-bridge.service local-ai-docling-gate.service local-ai-docling.service local-ai-embedding.service local-ai-llama.service local-ai-searxng.service || true
 fi

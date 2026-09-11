@@ -29,6 +29,8 @@ jobs:
           ./tests/service-artifact-verification.sh
           ./tests/read-only-tool-smoke.sh
           ./tests/desktop-launcher-quoting.sh
+          ./tests/host-bridge-contract.sh
+          bash -n tests/host-bridge-smoke.sh
           python3 -c 'import tomllib; tomllib.load(open("config/models.toml", "rb")); tomllib.load(open("config/apptainer/images.lock", "rb"))'
           if rg -n '(^|[^A-Z_])apptainer exec' scripts tests; then
             exit 1

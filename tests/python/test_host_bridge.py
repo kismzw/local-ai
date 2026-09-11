@@ -1,14 +1,29 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import time
 from pathlib import Path
 
+import pytest
+from fastapi.security import HTTPAuthorizationCredentials
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("host_bridge", ROOT / "host-bridge/app.py")
 host_bridge = importlib.util.module_from_spec(spec)
 assert spec.loader
 spec.loader.exec_module(host_bridge)
+
+
+@pytest.fixture(autouse=True)
+def settings(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("HOST_TOOL_API_KEY", "host-secret")
+    monkeypatch.setenv("HOST_TOOL_AUDIT_DIR", str(tmp_path / "audit"))
+    monkeypatch.setenv("HOST_TOOL_CWD", str(tmp_path))
+    monkeypatch.setenv("HOST_TOOL_SHELL", "/bin/bash")
+    monkeypatch.setenv("HOST_TOOL_MAX_OUTPUT_CHARS", "1000")
+    monkeypatch.setenv("HOST_TOOL_MAX_TIMEOUT_SECONDS", "300")
+    monkeypatch.setenv("LOG_MAX_BYTES", "100000")
+    monkeypatch.setenv("LOG_ROTATION_COUNT", "2")
 
 
 def test_host_bridge_runs_with_owner_shell(tmp_path: Path):
@@ -22,3 +37,56 @@ def test_timeout_terminates_the_host_process_group(tmp_path: Path):
     assert code == 124
     assert timed_out is True
     assert time.monotonic() - started < 3
+
+
+@pytest.mark.anyio
+async def test_authenticated_command_uses_configured_cwd_and_records_both_audit_phases(tmp_path: Path):
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="host-secret")
+    response = await host_bridge.run_host_command(host_bridge.RunRequest(command="pwd"), credentials)
+    assert response["exit_code"] == 0
+    assert response["stdout"].strip() == str(tmp_path)
+    events = [json.loads(line) for line in (tmp_path / "audit" / "host-bridge.jsonl").read_text().splitlines()]
+    assert [event["phase"] for event in events] == ["start", "complete"]
+
+
+@pytest.mark.anyio
+async def test_invalid_key_and_audit_failure_do_not_execute(monkeypatch):
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="wrong")
+    with pytest.raises(host_bridge.HTTPException) as error:
+        await host_bridge.run_host_command(host_bridge.RunRequest(command="true"), credentials)
+    assert error.value.status_code == 401
+    monkeypatch.setattr(host_bridge, "audit", lambda _event: (_ for _ in ()).throw(OSError("disk full")))
+    monkeypatch.setattr(host_bridge, "execute", lambda *_args: pytest.fail("command executed without start audit"))
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="host-secret")
+    with pytest.raises(host_bridge.HTTPException) as error:
+        await host_bridge.run_host_command(host_bridge.RunRequest(command="true"), credentials)
+    assert error.value.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_configured_timeout_limit_is_enforced(monkeypatch):
+    monkeypatch.setenv("HOST_TOOL_MAX_TIMEOUT_SECONDS", "2")
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="host-secret")
+    with pytest.raises(host_bridge.HTTPException) as error:
+        await host_bridge.run_host_command(host_bridge.RunRequest(command="true", timeout_seconds=3), credentials)
+    assert error.value.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_queue_wait_counts_against_the_command_timeout():
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="host-secret")
+    await host_bridge.HOST_LOCK.acquire()
+    try:
+        response = await host_bridge.run_host_command(host_bridge.RunRequest(command="true", timeout_seconds=1), credentials)
+    finally:
+        host_bridge.HOST_LOCK.release()
+    assert response["exit_code"] == 124
+    assert response["timeout"] is True
+
+
+@pytest.mark.anyio
+async def test_readiness_reports_audit_io_failure_as_unavailable(monkeypatch):
+    monkeypatch.setattr(host_bridge, "ensure_audit_writable", lambda: (_ for _ in ()).throw(OSError("disk full")))
+    with pytest.raises(host_bridge.HTTPException) as error:
+        await host_bridge.ready()
+    assert error.value.status_code == 503

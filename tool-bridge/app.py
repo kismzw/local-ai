@@ -196,7 +196,7 @@ async def run_tool(payload: RunRequest, credentials: HTTPAuthorizationCredential
             if remaining <= 0:
                 raise __import__("subprocess").TimeoutExpired(payload.command, payload.timeout_seconds)
             result = await asyncio.to_thread(
-                __import__("subprocess").run, command, text=True, capture_output=True,
+                __import__("subprocess").run, command, text=True, encoding="utf-8", errors="replace", capture_output=True,
                 timeout=remaining, check=False,
             )
         finally:

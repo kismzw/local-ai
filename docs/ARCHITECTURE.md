@@ -10,6 +10,9 @@ Browser (${OPEN_WEBUI_BIND}:${OPEN_WEBUI_PORT})
        -> localhost tool bridge
             -> separate Apptainer SIF --containall + explicit /workspace bind
                + optional explicit /data:ro bind + secret-file masking
+       -> optional localhost Full Desktop host bridge
+            -> /bin/bash -lc as the owner Linux user (full user filesystem,
+               processes, network, and available SSH-agent authority)
 ```
 
 Apptainer normally shares the host network. Both llama servers bind explicitly
@@ -24,6 +27,12 @@ Vision is deliberately not claimed: it requires a selected multimodal Qwen
 GGUF, matching projector, and verified llama.cpp image-input support. Apptainer
 containment is not a hardened VM boundary; filesystem, secret-path, write, and
 network properties are tested independently.
+
+The Full Desktop host bridge is an explicit, separately keyed opt-in capability
+(`HOST_TOOL_ENABLED=true`). It does not weaken the contained workspace bridge,
+but it is not a sandbox: a model with its adapter enabled can exercise the same
+authority as the desktop user, including SSH identities available through the
+user systemd manager.
 
 Web search is a separate, deliberate egress path: SearXNG queries public search
 engines and Open WebUI fetches selected public pages. Both listeners remain on

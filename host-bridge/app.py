@@ -24,7 +24,7 @@ APP.add_middleware(CORSMiddleware, allow_origins=[f"http://127.0.0.1:{UI_PORT}",
 
 class RunRequest(BaseModel):
     command: str = Field(min_length=1, max_length=8000)
-    timeout_seconds: int = Field(default=30, ge=1, le=300)
+    timeout_seconds: int = Field(default=30, ge=1, le=3600)
 
 
 def setting(name: str) -> str:
@@ -97,7 +97,7 @@ def require_key(credentials: HTTPAuthorizationCredentials | None) -> None:
 
 
 def execute(command: str, shell: str, cwd: str, timeout: float) -> tuple[int, str, str, bool]:
-    process = subprocess.Popen([shell, "-lc", command], cwd=cwd, env=os.environ.copy(), text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    process = subprocess.Popen([shell, "-lc", command], cwd=cwd, env=os.environ.copy(), text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
     try:
         stdout, stderr = process.communicate(timeout=timeout)
         return process.returncode, stdout, stderr, False
@@ -125,7 +125,7 @@ async def ready() -> dict[str, str]:
         if not Path(setting("HOST_TOOL_CWD")).is_dir():
             raise RuntimeError("host command directory is unavailable")
         ensure_audit_writable()
-    except RuntimeError as error:
+    except (OSError, RuntimeError) as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     return {"status": "ready"}
 
@@ -144,7 +144,10 @@ async def run_host_command(payload: RunRequest, credentials: HTTPAuthorizationCr
         shell, cwd = setting("HOST_TOOL_SHELL"), setting("HOST_TOOL_CWD")
         if not Path(shell).is_file() or not os.access(shell, os.X_OK) or not Path(cwd).is_dir():
             raise RuntimeError("host bridge shell or working directory is unavailable")
-        ensure_audit_writable()
+        # A durable start record is required before arbitrary host authority is
+        # granted. Completion can still fail under a later I/O fault, but the
+        # command cannot be entirely absent from the audit trail.
+        audit({"phase": "start", "at": started.isoformat(), "command": payload.command, "cwd": cwd})
         await asyncio.wait_for(HOST_LOCK.acquire(), timeout=max(0.001, deadline - loop.time()))
         try:
             remaining = deadline - loop.time()
@@ -161,7 +164,7 @@ async def run_host_command(payload: RunRequest, credentials: HTTPAuthorizationCr
         failure = str(error)
         response = {"exit_code": 125, "stdout": "", "stderr": failure, "timeout": False}
     try:
-        audit({"at": started.isoformat(), "command": payload.command, "cwd": os.environ.get("HOST_TOOL_CWD", ""), "duration_ms": round((loop.time() - deadline + payload.timeout_seconds) * 1000), "failure": failure, **response})
+        audit({"phase": "complete", "at": started.isoformat(), "command": payload.command, "cwd": os.environ.get("HOST_TOOL_CWD", ""), "duration_ms": round((loop.time() - deadline + payload.timeout_seconds) * 1000), "failure": failure, **response})
     except (OSError, RuntimeError) as error:
         response["audit_status"] = "failed"
         response["audit_error"] = str(error)

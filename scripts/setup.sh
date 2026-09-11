@@ -4,14 +4,11 @@ set -Eeuo pipefail
 root_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
 
-runtime_bin=${APPTAINER_BIN:-}
-if [[ -z $runtime_bin ]]; then runtime_bin=$(command -v apptainer || command -v singularity || true); fi
 uv_bin=${UV_BIN:-"$HOME/.local/bin/uv"}
 need=()
 for command_name in curl python3 openssl; do
   command -v "$command_name" >/dev/null 2>&1 || need+=("$command_name")
 done
-if [[ -z "$runtime_bin" ]]; then need+=("apptainer-or-singularity"); fi
 [[ -x $uv_bin ]] || need+=("uv (run scripts/install-uv.sh first)")
 if ((${#need[@]})); then
   printf 'Missing prerequisite(s): %s\n' "${need[*]}" >&2
@@ -24,6 +21,23 @@ if [[ ! -f .env ]]; then
   printf 'Created .env from .env.example.\n'
 fi
 chmod 600 .env
+
+# Parse only the configured runtime safely; .env is never sourced as shell code.
+runtime_bin=$(python3 - <<'PY'
+import importlib.util
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("config_check", "scripts/config-check.py")
+module = importlib.util.module_from_spec(spec)
+assert spec.loader
+spec.loader.exec_module(module)
+print(module.parse_env(Path(".env")).get("APPTAINER_BIN", ""))
+PY
+)
+if [[ -z $runtime_bin ]]; then runtime_bin=$(command -v apptainer || command -v singularity || true); fi
+if [[ -z $runtime_bin ]] || { [[ $runtime_bin != */* ]] && ! command -v "$runtime_bin" >/dev/null 2>&1; } || { [[ $runtime_bin == */* ]] && [[ ! -x $runtime_bin ]]; }; then
+  printf 'Configured Apptainer/Singularity runtime is unavailable: %s\n' "${runtime_bin:-none}" >&2
+  exit 1
+fi
 
 ensure_variable() {
   local name=$1 value=$2
@@ -55,6 +69,7 @@ ensure_variable DOCLING_MAX_SYNC_WAIT_SECONDS 600
 ensure_variable LOG_MAX_BYTES 10485760
 ensure_variable LOG_ROTATION_COUNT 5
 ensure_variable HOST_TOOL_ENABLED false
+ensure_variable HOST_TOOL_API_KEY CHANGE_ME
 ensure_variable HOST_TOOL_BIND 127.0.0.1
 ensure_variable HOST_TOOL_PORT 8091
 ensure_variable HOST_TOOL_AUDIT_DIR ./data/host-tool-audit

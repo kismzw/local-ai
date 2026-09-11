@@ -31,10 +31,14 @@ if [[ $TOOL_BRIDGE_ENABLED == true ]]; then
     printf '9. Codex writable workflow skipped (TOOL_WRITE_MODE=read_only).\n'
   fi
 fi
-printf '10. SearXNG JSON search\n'
+if [[ $HOST_TOOL_ENABLED == true ]]; then
+  printf '10. Full Desktop Shell\n'
+  ./tests/host-bridge-smoke.sh
+fi
+printf '11. SearXNG JSON search\n'
 curl -fsS "http://127.0.0.1:${SEARXNG_PORT}/search?q=Open+WebUI&format=json" | grep -q '"results"'
-printf '11. Web fetch isolation policy\n'
+printf '12. Web fetch isolation policy\n'
 ./tests/web-fetch-isolation.sh
-printf '12. Docling gate health\n'
+printf '13. Docling gate health\n'
 curl -fsS "http://127.0.0.1:${DOCLING_GATE_PORT}/health" | grep -q '"status":"ok"'
 printf 'Smoke checks passed. See docs/TESTING.md for browser RAG and persistence checks.\n'

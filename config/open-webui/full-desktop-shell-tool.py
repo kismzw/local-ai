@@ -19,10 +19,11 @@ class Tools:
         api_key = os.environ.get("HOST_TOOL_API_KEY", "")
         if not api_key:
             return "Full Desktop Shell is not configured: missing HOST_TOOL_API_KEY."
-        payload = json.dumps({"command": command, "timeout_seconds": max(1, min(int(timeout_seconds), 300))}).encode("utf-8")
+        maximum = max(1, min(int(os.environ.get("HOST_TOOL_MAX_TIMEOUT_SECONDS", "300")), 3600))
+        payload = json.dumps({"command": command, "timeout_seconds": max(1, min(int(timeout_seconds), maximum))}).encode("utf-8")
         request = Request(bridge_url, data=payload, headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, method="POST")
         try:
-            with urlopen(request, timeout=305) as response:
+            with urlopen(request, timeout=maximum + 5) as response:
                 return json.dumps(json.loads(response.read().decode("utf-8")), ensure_ascii=False)
         except HTTPError as error:
             return f"Full Desktop Shell rejected the request ({error.code}): {error.read().decode('utf-8', 'replace')}"

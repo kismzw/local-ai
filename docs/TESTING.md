@@ -10,6 +10,13 @@ configuration alone.
 `TOOL_BRIDGE_ENABLED=true` and `TOOL_WRITE_MODE=read_write`; read-only bridge
 configurations still validate containment and allowlisted mounts.
 
+When `HOST_TOOL_ENABLED=true`, `smoke.sh` also authenticates to the Full
+Desktop host bridge and verifies an audited host command. After logout/login,
+run `id; printf '%s\n' "$SSH_AUTH_SOCK"; test -S "$SSH_AUTH_SOCK" &&
+ssh-add -l` through the Full Desktop Shell. Record a successful non-interactive
+`ssh -o BatchMode=yes HOST 'hostname; id'` separately when a suitable host is
+available; SSH acceptance is machine-specific.
+
 ## Automated web-fetch boundary check
 
 With the native Open WebUI service running, execute:

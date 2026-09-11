@@ -34,6 +34,18 @@ remain behind owner approval.
 The core chat/RAG services do not depend on bridge health; if tools are stopped
 or disabled, Open WebUI remains usable normally.
 
+## Full Desktop Shell
+
+The optional **Full Desktop Shell** is a different service from the contained
+tool bridge. With `HOST_TOOL_ENABLED=true`, it runs `/bin/bash -lc` as the
+owner Linux user in `HOST_TOOL_CWD`, without Apptainer containment. It can use
+the user's files, local programs, network, and imported `SSH_AUTH_SOCK`.
+Every command requires the separate `HOST_TOOL_API_KEY`, creates a durable
+`start` audit event before execution, and creates a completion event afterward
+in `data/host-tool-audit/host-bridge.jsonl`. It is intentionally not read-only.
+Enable it only for the Local Admin model profile, never as a default companion
+to web research.
+
 Qwen Codex follows a chat-level approval protocol: it inspects first, presents a
 plan, and waits for an explicit approval before write calls. Open WebUI cannot
 technically attest that a preceding approval message was user-authored, so do
