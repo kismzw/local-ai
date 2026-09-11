@@ -29,8 +29,12 @@ and definition hash before every systemd-backed startup.
 The optional Full Desktop Shell is deliberately outside this containment model.
 When `HOST_TOOL_ENABLED=true`, authenticated requests execute as the owner
 Linux user, with that user's filesystem, process, network, and available SSH
-agent authority. It is loopback-only, separately keyed, serialized, and fully
-audited, but it is not a sandbox. Keep it disabled for web-research profiles.
+agent authority. It is loopback-only, separately keyed, serialized, and emits
+a best-effort operational audit, but it is not a sandbox. The audit is not
+tamper-resistant against Full Desktop Shell itself: the command has the same
+user-level authority over its JSONL file. Tamper resistance requires a separate
+privilege boundary or remote append-only collector. Keep it disabled for
+web-research profiles.
 
 Open WebUI's automatic memory feature is disabled. Long-term memory follows the
 explicit, owner-maintained YAML workflow in `docs/MEMORY.md`. Signups are also

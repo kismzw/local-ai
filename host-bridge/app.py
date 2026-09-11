@@ -88,6 +88,8 @@ def ensure_audit_writable() -> None:
 def audit(event: dict) -> None:
     with audit_target().open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(event, ensure_ascii=False) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
 
 
 def require_key(credentials: HTTPAuthorizationCredentials | None) -> None:
@@ -144,9 +146,9 @@ async def run_host_command(payload: RunRequest, credentials: HTTPAuthorizationCr
         shell, cwd = setting("HOST_TOOL_SHELL"), setting("HOST_TOOL_CWD")
         if not Path(shell).is_file() or not os.access(shell, os.X_OK) or not Path(cwd).is_dir():
             raise RuntimeError("host bridge shell or working directory is unavailable")
-        # A durable start record is required before arbitrary host authority is
-        # granted. Completion can still fail under a later I/O fault, but the
-        # command cannot be entirely absent from the audit trail.
+        # A flushed start record is required before arbitrary host authority is
+        # granted. This is an operational audit, not a tamper-resistant record:
+        # the owner-level command can modify files owned by the same user.
         audit({"phase": "start", "at": started.isoformat(), "command": payload.command, "cwd": cwd})
         await asyncio.wait_for(HOST_LOCK.acquire(), timeout=max(0.001, deadline - loop.time()))
         try:

@@ -31,7 +31,9 @@ only for a dedicated Local Admin model profile. It runs arbitrary commands as
 the owner Linux user: it can read, modify, or delete any user-accessible file,
 start processes, access the network, and use available SSH credentials. It is
 not sandboxed and has no read-only mode. It has a distinct API key and records
-every invocation in `data/host-tool-audit/host-bridge.jsonl`.
+best-effort operational audit events in `data/host-tool-audit/host-bridge.jsonl`.
+Those events are not tamper-resistant against the Full Desktop Shell itself,
+which has the same owner-level filesystem authority.
 
 Do not enable Full Desktop Shell together with the web-research profile by
 default: malicious web content can influence a model that can access local
