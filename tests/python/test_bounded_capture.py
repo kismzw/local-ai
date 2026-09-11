@@ -40,3 +40,15 @@ def test_drains_final_output_before_closing_pipes():
     )
     assert result.stdout == "beginning"
     assert result.stderr == "final-stderr"
+
+
+def test_background_child_cannot_hold_capture_open():
+    started = time.monotonic()
+    result = bounded_capture.run(
+        ["/bin/sh", "-c", "sleep 30 & echo done"],
+        timeout=5,
+        limit=1000,
+        start_new_session=True,
+    )
+    assert "done" in result.stdout
+    assert time.monotonic() - started < 2
