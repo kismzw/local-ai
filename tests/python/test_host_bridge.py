@@ -52,6 +52,27 @@ def test_systemd_session_environment_is_refreshed(monkeypatch):
     assert host_bridge.systemd_session_environment() == {"SSH_AUTH_SOCK": "/run/agent", "DISPLAY": ":1"}
 
 
+def test_session_environment_delay_counts_against_timeout(monkeypatch, tmp_path: Path):
+    invoked = False
+
+    def delayed_environment(*, timeout: float):
+        assert timeout <= 0.01
+        time.sleep(0.02)
+        return {}
+
+    def must_not_run(*_args, **_kwargs):
+        nonlocal invoked
+        invoked = True
+        pytest.fail("command started after its timeout budget was exhausted")
+
+    monkeypatch.setattr(host_bridge, "systemd_session_environment", delayed_environment)
+    monkeypatch.setattr(host_bridge, "run_bounded", must_not_run)
+    code, stdout, stderr, timed_out = host_bridge.execute("true", "/bin/bash", str(tmp_path), 0.01)
+    assert (code, stdout, timed_out) == (124, "", True)
+    assert "timed out" in stderr
+    assert not invoked
+
+
 def test_audit_permissions_are_owner_only(tmp_path: Path):
     target = host_bridge.audit_target()
     assert target.parent.stat().st_mode & 0o777 == 0o700

@@ -6,6 +6,7 @@ import json
 import os
 import secrets
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -102,11 +103,11 @@ def require_key(credentials: HTTPAuthorizationCredentials | None) -> None:
         raise HTTPException(status_code=401, detail="invalid host bridge API key")
 
 
-def systemd_session_environment() -> dict[str, str]:
+def systemd_session_environment(timeout: float = 3) -> dict[str, str]:
     """Read fresh GUI/agent values without retaining a stale login environment."""
     names = {"SSH_AUTH_SOCK", "DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"}
     try:
-        result = subprocess.run(["systemctl", "--user", "show-environment"], text=True, encoding="utf-8", errors="replace", capture_output=True, timeout=3, check=False)
+        result = subprocess.run(["systemctl", "--user", "show-environment"], text=True, encoding="utf-8", errors="replace", capture_output=True, timeout=min(3, max(0.001, timeout)), check=False)
     except (OSError, subprocess.TimeoutExpired):
         return {}
     if result.returncode:
@@ -115,9 +116,13 @@ def systemd_session_environment() -> dict[str, str]:
 
 
 def execute(command: str, shell: str, cwd: str, timeout: float) -> tuple[int, str, str, bool]:
+    started = time.monotonic()
     environment = os.environ.copy()
-    environment.update(systemd_session_environment())
-    result = run_bounded([shell, "-lc", command], cwd=cwd, env=environment, timeout=timeout, limit=output_limit(), start_new_session=True)
+    environment.update(systemd_session_environment(timeout=timeout))
+    remaining = timeout - (time.monotonic() - started)
+    if remaining <= 0:
+        return 124, "", f"timed out after {timeout:g} seconds", True
+    result = run_bounded([shell, "-lc", command], cwd=cwd, env=environment, timeout=remaining, limit=output_limit(), start_new_session=True)
     return result.returncode, result.stdout, result.stderr, result.timed_out
 
 
