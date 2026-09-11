@@ -5,6 +5,7 @@ import asyncio
 import json
 import os
 import secrets
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -13,6 +14,9 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from bounded_capture import run as run_bounded
 
 APP = FastAPI(title="Local AI Restricted Tool Bridge", version="0.1.0")
 BEARER = HTTPBearer(auto_error=False)
@@ -195,10 +199,7 @@ async def run_tool(payload: RunRequest, credentials: HTTPAuthorizationCredential
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
                 raise __import__("subprocess").TimeoutExpired(payload.command, payload.timeout_seconds)
-            result = await asyncio.to_thread(
-                __import__("subprocess").run, command, text=True, encoding="utf-8", errors="replace", capture_output=True,
-                timeout=remaining, check=False,
-            )
+            result = await asyncio.to_thread(run_bounded, command, timeout=remaining, limit=output_limit())
         finally:
             WORKSPACE_LOCK.release()
         stdout, stderr = limit_output(result.stdout, result.stderr)

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
-import subprocess
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -72,9 +71,9 @@ async def test_workspace_commands_are_serialized(monkeypatch):
         peak = max(peak, active)
         time.sleep(0.03)
         active -= 1
-        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="", timed_out=False)
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(bridge, "run_bounded", fake_run)
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="secret")
     await asyncio.gather(
         bridge.run_tool(bridge.RunRequest(command="true"), credentials),
@@ -85,7 +84,7 @@ async def test_workspace_commands_are_serialized(monkeypatch):
 
 @pytest.mark.anyio
 async def test_audit_failure_reports_completed_command(monkeypatch):
-    monkeypatch.setattr(subprocess, "run", lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="ok", stderr=""))
+    monkeypatch.setattr(bridge, "run_bounded", lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="ok", stderr="", timed_out=False))
     monkeypatch.setattr(bridge, "audit", lambda _event: (_ for _ in ()).throw(OSError("disk full")))
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="secret")
     response = await bridge.run_tool(bridge.RunRequest(command="true", mode="write"), credentials)
@@ -103,7 +102,7 @@ async def test_write_rejects_unwritable_audit_before_execution(monkeypatch):
         called = True
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(bridge, "run_bounded", fake_run)
     monkeypatch.setattr(bridge, "ensure_audit_writable", lambda: (_ for _ in ()).throw(OSError("disk full")))
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="secret")
     with pytest.raises(bridge.HTTPException) as error:

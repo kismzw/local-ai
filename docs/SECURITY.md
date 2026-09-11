@@ -36,6 +36,13 @@ user-level authority over its JSONL file. Tamper resistance requires a separate
 privilege boundary or remote append-only collector. Keep it disabled for
 web-research profiles.
 
+Before each Full Desktop command, the bridge overlays the current user
+manager's `SSH_AUTH_SOCK`, display, runtime-directory, and D-Bus session
+variables. This avoids retaining a stale agent socket after login auto-start.
+Both bridges continuously drain command output into bounded tail buffers rather
+than buffering arbitrary stdout/stderr in service memory. Host audit directories
+and their active JSONL files are forced to owner-only `0700`/`0600` modes.
+
 Open WebUI's automatic memory feature is disabled. Long-term memory follows the
 explicit, owner-maintained YAML workflow in `docs/MEMORY.md`. Signups are also
 disabled after the first administrator account. The UI has a 50 MB, ten-file

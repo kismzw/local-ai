@@ -47,6 +47,12 @@ audit, not a tamper-resistant trail: the Full Desktop Shell has the same user
 authority as the audit file. It is intentionally not read-only. Enable it only
 for the Local Admin model profile, never as a default companion to web research.
 
+The bridge obtains current session variables from `systemctl --user
+show-environment` for every command, so a login-time service does not retain an
+obsolete SSH-agent socket after the session updates it. Command stdout/stderr
+is continuously drained into bounded tail buffers. Custom host-audit paths are
+enforced as `0700`, with the active JSONL file at `0600`.
+
 Qwen Codex follows a chat-level approval protocol: it inspects first, presents a
 plan, and waits for an explicit approval before write calls. Open WebUI cannot
 technically attest that a preceding approval message was user-authored, so do

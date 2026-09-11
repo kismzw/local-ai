@@ -5,7 +5,6 @@ import asyncio
 import json
 import os
 import secrets
-import signal
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +13,10 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
+
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from bounded_capture import run as run_bounded
 
 APP = FastAPI(title="Local AI Full Desktop Host Bridge", version="0.1.0")
 BEARER = HTTPBearer(auto_error=False)
@@ -71,12 +74,13 @@ def limit_output(stdout: str, stderr: str) -> tuple[str, str]:
 
 def audit_target() -> Path:
     directory = Path(setting("HOST_TOOL_AUDIT_DIR"))
-    directory.mkdir(parents=True, exist_ok=True)
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    directory.chmod(0o700)
     from log_rotate import rotate_from_environment
     target = directory / "host-bridge.jsonl"
     rotate_from_environment(target)
+    target.touch(mode=0o600, exist_ok=True)
+    target.chmod(0o600)
     return target
 
 
@@ -98,19 +102,23 @@ def require_key(credentials: HTTPAuthorizationCredentials | None) -> None:
         raise HTTPException(status_code=401, detail="invalid host bridge API key")
 
 
-def execute(command: str, shell: str, cwd: str, timeout: float) -> tuple[int, str, str, bool]:
-    process = subprocess.Popen([shell, "-lc", command], cwd=cwd, env=os.environ.copy(), text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+def systemd_session_environment() -> dict[str, str]:
+    """Read fresh GUI/agent values without retaining a stale login environment."""
+    names = {"SSH_AUTH_SOCK", "DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"}
     try:
-        stdout, stderr = process.communicate(timeout=timeout)
-        return process.returncode, stdout, stderr, False
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGTERM)
-        try:
-            stdout, stderr = process.communicate(timeout=2)
-        except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGKILL)
-            stdout, stderr = process.communicate()
-        return 124, stdout or "", stderr or f"timed out after {timeout:g} seconds", True
+        result = subprocess.run(["systemctl", "--user", "show-environment"], text=True, encoding="utf-8", errors="replace", capture_output=True, timeout=3, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    if result.returncode:
+        return {}
+    return {name: value for line in result.stdout.splitlines() if "=" in line for name, value in [line.split("=", 1)] if name in names}
+
+
+def execute(command: str, shell: str, cwd: str, timeout: float) -> tuple[int, str, str, bool]:
+    environment = os.environ.copy()
+    environment.update(systemd_session_environment())
+    result = run_bounded([shell, "-lc", command], cwd=cwd, env=environment, timeout=timeout, limit=output_limit(), start_new_session=True)
+    return result.returncode, result.stdout, result.stderr, result.timed_out
 
 
 @APP.get("/health")

@@ -4,6 +4,7 @@ import importlib.util
 import json
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.security import HTTPAuthorizationCredentials
@@ -37,6 +38,24 @@ def test_timeout_terminates_the_host_process_group(tmp_path: Path):
     assert code == 124
     assert timed_out is True
     assert time.monotonic() - started < 3
+
+
+def test_output_is_drained_into_a_bounded_tail_buffer(tmp_path: Path):
+    code, stdout, stderr, timed_out = host_bridge.execute("python3 -c 'print(\"x\" * 1000000)'", "/bin/bash", str(tmp_path), 10)
+    assert code == 0 and not timed_out and not stderr
+    assert len(stdout) <= 1000
+    assert stdout.endswith("x\n")
+
+
+def test_systemd_session_environment_is_refreshed(monkeypatch):
+    monkeypatch.setattr(host_bridge.subprocess, "run", lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="SSH_AUTH_SOCK=/run/agent\nIGNORED=value\nDISPLAY=:1\n"))
+    assert host_bridge.systemd_session_environment() == {"SSH_AUTH_SOCK": "/run/agent", "DISPLAY": ":1"}
+
+
+def test_audit_permissions_are_owner_only(tmp_path: Path):
+    target = host_bridge.audit_target()
+    assert target.parent.stat().st_mode & 0o777 == 0o700
+    assert target.stat().st_mode & 0o777 == 0o600
 
 
 @pytest.mark.anyio
